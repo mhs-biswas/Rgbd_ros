@@ -44,6 +44,10 @@ void setupBlazeCamera(CBlazeCamera& m_blazeCamera)
     m_blazeCamera.SetCameraParameterValue("Scan3dInvalidDataValue", 0.0);
     m_blazeCamera.SetCameraParameterValue("Scan3dCoordinateSelector", "CoordinateC");
     m_blazeCamera.SetCameraParameterValue("Scan3dInvalidDataValue", 0.0);
+    m_blazeCamera.SetCameraParameterValue("OperatingMode","LongRange");
+    m_blazeCamera.SetCameraParameterValue("FastMode",true);
+
+    // m_blazeCamera.SetCameraParameterValue("AmbiguityFilter",true);
 
     // Enable the intensity image.
     m_blazeCamera.SetCameraParameterValue("ComponentSelector", "Intensity");
@@ -87,7 +91,8 @@ cv::Mat processBlazeData_cloudpoint(const GrabResult& result, CBlazeCamera& m_bl
     const int height = (int)parts[0].height;
     // const int count = width * height;
     cv::Mat pointcloud = cv::Mat(height, width, CV_32FC3, parts[0].pData);
-    
+    // pointcloud.convertTo(pointcloud, CV_FC3);
+    pointcloud=pointcloud;
 
     return pointcloud;
 }
@@ -134,7 +139,7 @@ int main(int argc, char* argv[])
     image_transport::ImageTransport it_(n);
     intensity_pub_=it_.advertise("Blaze/intensity_image", 1);
     pointcloud_pub_ =it_.advertise("Blaze/pointcloud", 1);
-    ros::Rate loop_rate(100);
+    // ros::Rate loop_rate(100);
 
     CBlazeCamera m_blazeCamera;
     CBlazeCamera::InitProducer();
@@ -144,9 +149,9 @@ int main(int argc, char* argv[])
 
     setupBlazeCamera(m_blazeCamera);
     getBlazeCalibration(m_blazeCamera);
-    m_blazeCamera.PrepareAcquisition(1);
+    m_blazeCamera.PrepareAcquisition(3);
 
-    for (size_t i = 0; i < 1; ++i) {
+    for (size_t i = 0; i < 3; ++i) {
             m_blazeCamera.QueueBuffer(i);
            
         }
@@ -155,7 +160,7 @@ int main(int argc, char* argv[])
     m_blazeCamera.StartAcquisition();
     m_blazeCamera.IssueAcquisitionStartCommand();
     m_blazeCamera.ExecuteCameraCommand("TriggerSoftware");
-    // ros::Rate loop_rate(10);
+    ros::Rate loop_rate(100);
 
     while (ros::ok())
     {

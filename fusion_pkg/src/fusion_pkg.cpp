@@ -16,6 +16,8 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <vtkRenderWindow.h>
+#include <typeinfo>
+
 // #include <
 
 using namespace message_filters;
@@ -70,56 +72,58 @@ cv::Mat warpColorToDepth(const cv::Mat pointcloud, const cv::Mat& color)
     const int width = pointcloud.cols;
     const int height = pointcloud.rows;
     cv::Mat copy_pcl(pointcloud.size(), CV_32FC3);
-    pointcloud.convertTo(pointcloud, CV_32FC3, 1/255.0);
-    pointcloud.copyTo(copy_pcl);
+    // pointcloud.convertTo(pointcloud, CV_32FC3, 1/255.0);
+    // pointcloud.copyTo(copy_pcl);
+
+    // const cv::Vec3f point3d = pointcloud.at<cv::Vec3f>(0, 0)
+
+    for(int i=0;i<height;i++)
+    {
+        for(int j=0;j<width;j++)
+        {
+            const cv::Vec3f point3d = pointcloud.at<cv::Vec3f>(i, j);
+            copy_pcl.at<cv::Vec3f>(i,j)=point3d;
+
+        }
+
+    }
 
     cv::Mat coloredDepth(pointcloud.size(), CV_8UC3);
     
     std::cout<< "Size: "<<pointcloud.size()<<'\n';
+    // std::cout << typeid(pointcloud).name() << endl;
+    
     // cv::namedWindow("Blaze_depth");
-    // cv::imshow("Blaze_depth", copy_pcl);
+    // cv::imshow("Blaze_depth", pointcloud);
     // // cv::destroyWindow("Blaze_depth");
-    // cv::waitKey(0);
-    // cv::destroyWindow("Blaze_depth");
+    // cv::waitKey(1);
 
-    // cv::Mat pointcloudVec ;
-    // // // Project the 3d point into the color camera
-    // if(pointcloud.empty())
-    // {
-    //     cv::Mat pointcloud_(pointcloud.size(), CV_8UC3);
-    //     pointcloudVec=pointcloud_;
-         
-    // }
-    // else{
 
-    //     pointcloudVec = pointcloud.reshape(3, 1);
-    // }
+                    cv::Mat pointcloudVec = copy_pcl.reshape(3, 1);
+                    // std::cout<< "Size pointcloudVec: "<<pointcloudVec.size()<<'\n';
+                    cv::Mat projectedPoints;
+                    cv::projectPoints(pointcloudVec, m_rotation, m_rotation* m_translation, m_colorCameraMatrix, m_colorDistortion, projectedPoints);
 
-    cv::Mat pointcloudVec = copy_pcl.reshape(3, 1);
-    std::cout<< "Size pointcloudVec: "<<pointcloudVec.size()<<'\n';
-    cv::Mat projectedPoints;
-    cv::projectPoints(pointcloudVec, m_rotation, m_rotation* m_translation, m_colorCameraMatrix, m_colorDistortion, projectedPoints);
-
-    const cv::Vec3b invalidPoint(0, 0, 0);
-    cv::Rect colorRect(cv::Point(), color.size());
-    for (int row = 0; row < height; ++row) {
-        for (int col = 0; col < width; ++col) {
-            const int idx = row * width + col;
-            const cv::Vec3f& point3d = pointcloudVec.at<cv::Vec3f>(idx);
-            if (point3d[2] != 0.0f) {
-                const cv::Point2f& colorPoint = projectedPoints.at<cv::Point2f>(idx);
-                if (colorRect.contains(colorPoint)) {
-                    coloredDepth.at<cv::Vec3b>(row, col) = color.at<cv::Vec3b>(colorPoint);
-                } else {
-                    // No color information avalable
-                    coloredDepth.at<cv::Vec3b>(row, col) = invalidPoint;
-                }
-            } else {
-                // No depth information available for this pixel. Zero it.
-                coloredDepth.at<cv::Vec3b>(row, col) = invalidPoint;
-            }
-        }
-    }
+                    const cv::Vec3b invalidPoint(0, 0, 0);
+                    cv::Rect colorRect(cv::Point(), color.size());
+                    for (int row = 0; row < height; ++row) {
+                        for (int col = 0; col < width; ++col) {
+                            const int idx = row * width + col;
+                            const cv::Vec3f& point3d = pointcloudVec.at<cv::Vec3f>(idx);
+                            if (point3d[2] != 0.0f) {
+                                const cv::Point2f& colorPoint = projectedPoints.at<cv::Point2f>(idx);
+                                if (colorRect.contains(colorPoint)) {
+                                    coloredDepth.at<cv::Vec3b>(row, col) = color.at<cv::Vec3b>(colorPoint);
+                                } else {
+                                    // No color information avalable
+                                    coloredDepth.at<cv::Vec3b>(row, col) = invalidPoint;
+                                }
+                            } else {
+                                // No depth information available for this pixel. Zero it.
+                                coloredDepth.at<cv::Vec3b>(row, col) = invalidPoint;
+                            }
+                        }
+                    }
 
     return coloredDepth;
 }
@@ -134,10 +138,15 @@ void callback(const sensor_msgs::ImageConstPtr& image_blaze_pointcloud, const se
   try
    {    
 
-        cv::Mat colorImg= cv_bridge::toCvShare(image_rgb, "bgr8")->image;
+        cv::Mat colorImg= cv_bridge::toCvShare(image_rgb, "rgb8")->image;
         cv::Mat blazeImg= cv_bridge::toCvShare(image_blaze_pointcloud, "rgb8")->image;
-
         cv::Mat coloredDepth = warpColorToDepth(blazeImg, colorImg);
+
+        // cv::namedWindow("coloured_depth");
+        // cv::imshow("coloured_depth", coloredDepth);
+        // // cv::destroyWindow("Blaze_depth");
+        // cv::waitKey(1);
+        // cv::destroyWindow("coloured_depth");
 
         const int width = blazeImg.cols;
         const int height = blazeImg.rows;
@@ -146,10 +155,11 @@ void callback(const sensor_msgs::ImageConstPtr& image_blaze_pointcloud, const se
             for (int col = 0; col < width; col += 1) {
                 auto& coloredPoint = pointcloud->at(col, row); // PCL uses column/row instead of row/column
 
-                const cv::Vec3f point3d = blazeImg.at<cv::Vec3f>(row, col) / 1000.0f; // Scaling from mm to m for PCL
+                const cv::Vec3f point3d = blazeImg.at<cv::Vec3f>(row, col)/ 1000.0f; // Scaling from mm to m for PCL
                 coloredPoint.x = point3d[0];
                 coloredPoint.y = point3d[1];
                 coloredPoint.z = point3d[2];
+                // std::cout<<"X: "<<coloredPoint.x<<" Y: "<<coloredPoint.y<<" Z: "<<coloredPoint.z<<'\n'; 
 
                 const cv::Vec3b color = coloredDepth.at<cv::Vec3b>(row, col);
                 coloredPoint.r = color[0];
