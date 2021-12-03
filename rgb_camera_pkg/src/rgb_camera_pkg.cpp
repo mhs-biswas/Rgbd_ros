@@ -45,9 +45,17 @@ int main(int argc, char* argv[])
     image_transport::ImageTransport it_(n);
     image_pub_=it_.advertise("hik_vision/rgb_image", 1);
     ros::Rate loop_rate(100);
+    int dev_val=0;
+    
+    // n.getParam("dev_val",dev_val);
+    // n.param<int>("dev_val", dev_val, 10);
+    ros::param::get("/dev_val", dev_val);
 
+    std::cout<<dev_val<<'\n';
     camera::hik_vision my_camera;
+    my_camera.set_dev_num(dev_val);
     std::cout<<my_camera.initialize()<<'\n';
+    
 
     while (ros::ok())
     {

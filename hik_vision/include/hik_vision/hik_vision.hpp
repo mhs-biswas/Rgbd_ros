@@ -12,11 +12,13 @@
 // mhay todo: maybe use pimpl idiom?
 
 namespace camera {
+    
     class hik_vision: public camera_interface {
         public:
             hik_vision();
             ~hik_vision();
-            
+
+            void set_dev_num(int num);
             bool initialize() override final;
             cv::Mat capture() override final;
             
@@ -27,5 +29,6 @@ namespace camera {
             MVCC_INTVALUE       param_;
             std::mutex          io_sync_;
             std::atomic<bool>   initialized_;
+            int device_num;
     };
 }

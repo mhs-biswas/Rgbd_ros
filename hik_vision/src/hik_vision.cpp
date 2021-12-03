@@ -8,12 +8,19 @@
 #include <iostream>
 
 namespace camera {
+  
+
   hik_vision::hik_vision() : handle_(nullptr), initialized_(false) {
       
   }
 
   hik_vision::~hik_vision() {
       shutdown();
+  }
+
+  void hik_vision::set_dev_num(int num)
+  {
+    device_num=num;
   }
 
   bool hik_vision::initialize() {
@@ -38,13 +45,13 @@ namespace camera {
           }  
 
           // create handle
-          if((rv = MV_CC_CreateHandleWithoutLog(&handle_, device_list.pDeviceInfo[0]) == MV_OK)) {
+          if((rv = MV_CC_CreateHandleWithoutLog(&handle_, device_list.pDeviceInfo[device_num]) == MV_OK)) {
             std::cout<<"HELLOW I AM A HERE 1\n";
             // open device
             if((rv = MV_CC_OpenDevice(handle_)) == MV_OK) {
               // set optimal network package size (if GigE)
               std::cout<<"HELLOW I AM A HERE 2\n";
-              if (device_list.pDeviceInfo[0]->nTLayerType == MV_GIGE_DEVICE) {
+              if (device_list.pDeviceInfo[device_num]->nTLayerType == MV_GIGE_DEVICE) {
                 int packet_size = MV_CC_GetOptimalPacketSize(handle_);
                 std::cout<<"HELLOW I AM A HERE 3\n";
                 if (packet_size > 0) {
