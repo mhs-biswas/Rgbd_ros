@@ -1,4 +1,4 @@
-# RGB + Depth ROS package
+# RGB + Depth ROS package (single Hikvision and Basler Setup)
 
 Steps to make it work
 
