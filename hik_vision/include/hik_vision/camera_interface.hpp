@@ -7,7 +7,7 @@
 namespace camera{
     class camera_interface{
         public:
-            virtual bool initialize() = 0;
+            virtual bool initialize(int val) = 0;
             virtual cv::Mat capture() = 0;
             virtual bool shutdown() = 0;
     };

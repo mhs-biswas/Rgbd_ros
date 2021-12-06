@@ -41,20 +41,20 @@ int main(int argc, char* argv[])
        
     int exitCode = EXIT_SUCCESS;
     ros::init(argc, argv, "rgb_camera_node");
-    ros::NodeHandle n;
+    ros::NodeHandle n("~");
     image_transport::ImageTransport it_(n);
     image_pub_=it_.advertise("hik_vision/rgb_image", 1);
     ros::Rate loop_rate(100);
     int dev_val=0;
     
-    // n.getParam("dev_val",dev_val);
+    n.getParam("dev_val",dev_val);
     // n.param<int>("dev_val", dev_val, 10);
-    ros::param::get("/dev_val", dev_val);
+    // ros::param::get("/dev_val", dev_val);
 
-    std::cout<<dev_val<<'\n';
+    std::cout<<"DEV_VAL"<<dev_val<<'\n';
     camera::hik_vision my_camera;
-    my_camera.set_dev_num(dev_val);
-    std::cout<<my_camera.initialize()<<'\n';
+    
+    std::cout<<my_camera.initialize(dev_val)<<'\n';
     
 
     while (ros::ok())

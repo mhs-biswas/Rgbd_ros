@@ -18,8 +18,8 @@ namespace camera {
             hik_vision();
             ~hik_vision();
 
-            void set_dev_num(int num);
-            bool initialize() override final;
+            
+            bool initialize(int dev_val) override final;
             cv::Mat capture() override final;
             
             bool shutdown() override final;

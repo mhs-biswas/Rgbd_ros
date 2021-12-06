@@ -6,9 +6,9 @@
 </node>
 
 <!-- <param name="dev_val" type="int" value="1" /> -->
-<!-- <node name="rgb_camera_node" pkg="rgb_camera_pkg" type="rgb_camera_pkg" ns="right_setup">
+<node name="rgb_camera_node" pkg="rgb_camera_pkg" type="rgb_camera_pkg" ns="right_setup">
     <param name="dev_val" type="int" value="1" />
-</node> -->
+</node>
 
 
 <!-- <node name="Blaze_node" pkg="basler_camera_pkg" type="basler_camera_pkg"/> -->

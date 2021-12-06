@@ -18,12 +18,9 @@ namespace camera {
       shutdown();
   }
 
-  void hik_vision::set_dev_num(int num)
-  {
-    device_num=num;
-  }
+  
 
-  bool hik_vision::initialize() {
+  bool hik_vision::initialize(int dev_val) {
     if(!initialized_.load()) {
       int rv = MV_OK;
       MV_CC_DEVICE_INFO_LIST device_list;
@@ -45,13 +42,13 @@ namespace camera {
           }  
 
           // create handle
-          if((rv = MV_CC_CreateHandleWithoutLog(&handle_, device_list.pDeviceInfo[device_num]) == MV_OK)) {
+          if((rv = MV_CC_CreateHandleWithoutLog(&handle_, device_list.pDeviceInfo[dev_val]) == MV_OK)) {
             std::cout<<"HELLOW I AM A HERE 1\n";
             // open device
             if((rv = MV_CC_OpenDevice(handle_)) == MV_OK) {
               // set optimal network package size (if GigE)
               std::cout<<"HELLOW I AM A HERE 2\n";
-              if (device_list.pDeviceInfo[device_num]->nTLayerType == MV_GIGE_DEVICE) {
+              if (device_list.pDeviceInfo[dev_val]->nTLayerType == MV_GIGE_DEVICE) {
                 int packet_size = MV_CC_GetOptimalPacketSize(handle_);
                 std::cout<<"HELLOW I AM A HERE 3\n";
                 if (packet_size > 0) {
@@ -79,7 +76,7 @@ namespace camera {
                   } else { std::cerr << "could not enable image grabbing: " << rv << std::endl; }
                 } else { std::cerr << "could not retrieve payload size: " << rv << std::endl; }
               } else { std::cerr << "could not set camera to software trigger mode: " << rv << std::endl; }
-            } else { std::cerr << "could not open device: " << rv << std::endl; }
+            } else { std::cerr << "could not open HI device: " << rv << std::endl; }
           } else { std::cerr << "could not create handle: " << rv << std::endl; }
         } else { std::cerr << "could not find any camera devices... " << std::endl; }
       } else { std::cerr << "failed to enumerate camera devices: " << rv << std::endl; }
