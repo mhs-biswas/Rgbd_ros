@@ -16,6 +16,7 @@ Published topic: "Blaze/intensity_image"
 #include <opencv2/imgproc.hpp>
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
+#include <typeinfo>
 // #include <pcl/point_cloud.h>
 // #include <pcl/point_types.h>
 // #include <pcl_ros/point_cloud.h>
@@ -24,11 +25,15 @@ Published topic: "Blaze/intensity_image"
 using namespace GenTLConsumerImplHelper;
 using namespace GenApi;
 
+// CameraList cameraList = CBlazeCamera::EnumerateCameras();
 
 
-void setupBlazeCamera(CBlazeCamera& m_blazeCamera)
+void setupBlazeCamera(CBlazeCamera& m_blazeCamera, std::string dev_serial_num)
 {
-    m_blazeCamera.Open(ModelName, "blaze-101");
+    // m_blazeCamera.Open(SerialNumber, "23882275");
+    m_blazeCamera.Open(SerialNumber, dev_serial_num);
+    // m_blazeCamera.Open(cameraList[0]);
+    // std::cout << typeid(cameraList).name() << std::endl;
 
     // If there are multiple cameras connected and you want to open a specific one, use
     // the CToFCamera::Open(CameraInfoKey, string) method.
@@ -135,19 +140,24 @@ int main(int argc, char* argv[])
 {   
 
     ros::init(argc, argv, "Blaze_node");
-    ros::NodeHandle n;
+    ros::NodeHandle n("~");
     image_transport::ImageTransport it_(n);
     intensity_pub_=it_.advertise("Blaze/intensity_image", 1);
     pointcloud_pub_ =it_.advertise("Blaze/pointcloud", 1);
     // ros::Rate loop_rate(100);
 
+
+    std::string serial_num;
+
+    n.getParam("serial_num",serial_num);
+    std::cout<<"serial_num"<<serial_num<<'\n';
     CBlazeCamera m_blazeCamera;
     CBlazeCamera::InitProducer();
 
     cv::Mat blazeCameraMatrix, blazeDistortion;
     // getBlazeCalibration(m_blazeCamera);
 
-    setupBlazeCamera(m_blazeCamera);
+    setupBlazeCamera(m_blazeCamera, serial_num);
     getBlazeCalibration(m_blazeCamera);
     m_blazeCamera.PrepareAcquisition(3);
 
