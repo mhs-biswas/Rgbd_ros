@@ -4,6 +4,7 @@
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/image_encodings.h>
+#include <sensor_msgs/PointCloud2.h>
 #include <cv_bridge/cv_bridge.h>
 #include <image_transport/image_transport.h>
 #include <message_filters/subscriber.h>
@@ -17,6 +18,7 @@
 #include <opencv2/imgproc.hpp>
 #include <vtkRenderWindow.h>
 #include <typeinfo>
+#include <pcl_ros/point_cloud.h>
 
 // #include <
 
@@ -28,7 +30,7 @@ cv::Mat         m_colorCameraMatrix;
 cv::Mat         m_colorDistortion;
 
 pcl::visualization::PCLVisualizer::Ptr m_visualizer;
-
+ros::Publisher  pcl_output;
 
 void loadCalibrationFile(std::string calib_file_path)
 {
@@ -151,6 +153,8 @@ void callback(const sensor_msgs::ImageConstPtr& image_blaze_pointcloud, const se
         const int width = blazeImg.cols;
         const int height = blazeImg.rows;
         pointcloud = pcl::PointCloud<pcl::PointXYZRGB>::Ptr(new pcl::PointCloud<pcl::PointXYZRGB>(width, height));
+        pointcloud->header.frame_id = "map"; // For RVIZ visualization only
+
         for (int row = 0; row < height; row += 1) {
             for (int col = 0; col < width; col += 1) {
                 auto& coloredPoint = pointcloud->at(col, row); // PCL uses column/row instead of row/column
@@ -169,6 +173,9 @@ void callback(const sensor_msgs::ImageConstPtr& image_blaze_pointcloud, const se
         }
 
         // Update the pointcloud and refresh the visualizer
+        // pcl::toROSMsg(*pointcloud, pointcloud);
+        pcl_output.publish (pointcloud);
+
         m_visualizer->updatePointCloud(pointcloud, cloudID);
         m_visualizer->spinOnce();
 
@@ -181,6 +188,7 @@ void callback(const sensor_msgs::ImageConstPtr& image_blaze_pointcloud, const se
 
 }
 
+
 int main(int argc, char* argv[])
 {   
 
@@ -190,11 +198,15 @@ int main(int argc, char* argv[])
     std::string calib_file_path;
     std::string pointcloud_topic;
     std::string image_topic;
+    std::string publish_pcl_topic;
 
     nh.getParam("calib_file_path",calib_file_path);
     nh.getParam("pointcloud_topic",pointcloud_topic);
     nh.getParam("image_topic",image_topic);
-    
+    nh.getParam("publish_pcl_topic",publish_pcl_topic);
+
+    pcl_output = nh.advertise<pcl::PointCloud<pcl::PointXYZRGB> >(publish_pcl_topic, 10);
+       
     std::cout<<"point_cloud: "<<pointcloud_topic+"/Blaze/pointcloud"<<"   "<<"img_topic: "<<image_topic+"/hik_vision/rgb_image"<<'\n';
 
     loadCalibrationFile(calib_file_path);

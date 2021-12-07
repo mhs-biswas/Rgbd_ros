@@ -2,8 +2,8 @@
 
 <node name="Fusion_node_LEFT" pkg="fusion_pkg" type="fusion_pkg" >
     <param name="calib_file_path" type="string" value="Calibration/Left_setup_calib/calib_data.xml" />
-    <param name="pointcloud_topic" type="string" value="/left_setup/Blaze_node" />
-    <param name="image_topic" type="string" value="/left_setup/rgb_camera_node" />
+    <param name="pointcloud_topic" type="string" value="/Blaze_node_left" />
+    <param name="image_topic" type="string" value="/rgb_camera_node_left" />
 </node>
 
 
