@@ -30,7 +30,7 @@ cv::Mat         m_colorDistortion;
 pcl::visualization::PCLVisualizer::Ptr m_visualizer;
 
 
-void loadCalibrationFile()
+void loadCalibrationFile(std::string calib_file_path)
 {
     // It is assumed that the 'calibration.xml' contains information about the relative orientation
     // of the cameras to each other and the optical calibration of the color camera.
@@ -39,8 +39,8 @@ void loadCalibrationFile()
     //                              + m_colorCamera.GetCameraInfo().strSerialNumber + ".xml";
 
     const std::string path = "Calibration/calib_data.xml";
-    std::cout << "Loading the calibration file: " << path << std::endl;
-    cv::FileStorage fs(path, cv::FileStorage::READ);
+    std::cout << "Loading the calibration file: " << calib_file_path << std::endl;
+    cv::FileStorage fs(calib_file_path, cv::FileStorage::READ);
 
     // if (!fs.isOpened()) {
     //     std::string msg("For the fusion of the data, calibration must first be performed.\nMake sure that there is a valid calibration with file name 'calibration.xml' in the directory.");
@@ -183,19 +183,30 @@ void callback(const sensor_msgs::ImageConstPtr& image_blaze_pointcloud, const se
 
 int main(int argc, char* argv[])
 {   
-    loadCalibrationFile();
+
+    ros::init(argc, argv, "Fusion_node");
+    ros::NodeHandle nh("~");
+
+    std::string calib_file_path;
+    std::string pointcloud_topic;
+    std::string image_topic;
+
+    nh.getParam("calib_file_path",calib_file_path);
+    nh.getParam("pointcloud_topic",pointcloud_topic);
+    nh.getParam("image_topic",image_topic);
+    
+    std::cout<<"point_cloud: "<<pointcloud_topic+"/Blaze/pointcloud"<<"   "<<"img_topic: "<<image_topic+"/hik_vision/rgb_image"<<'\n';
+
+    loadCalibrationFile(calib_file_path);
 
     setupVisualizer();
     m_visualizer->addPointCloud(pointcloud, cloudID);
     m_visualizer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, cloudID);
 
 
-    ros::init(argc, argv, "Fusion_node");
-    ros::NodeHandle nh;
-
     image_transport::ImageTransport it(nh);
-    message_filters::Subscriber<sensor_msgs::Image> sub_blaze_pointcloud(nh,"Blaze/pointcloud",1);
-    message_filters::Subscriber<sensor_msgs::Image> sub_rgb(nh,"hik_vision/rgb_image",1);
+    message_filters::Subscriber<sensor_msgs::Image> sub_blaze_pointcloud(nh,pointcloud_topic+"/Blaze/pointcloud",10);
+    message_filters::Subscriber<sensor_msgs::Image> sub_rgb(nh,image_topic+"/hik_vision/rgb_image/",10);
 
     TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(sub_blaze_pointcloud, sub_rgb,10);
     sync.registerCallback(boost::bind(&callback, _1, _2));

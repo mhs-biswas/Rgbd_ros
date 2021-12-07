@@ -2,26 +2,26 @@
 
 <!-- Starting Left Setup -->
 
-<node name="rgb_camera_node" pkg="rgb_camera_pkg" type="rgb_camera_pkg" ns="left_setup" >
-    <param name="dev_val" type="int" value="0" />
-</node>
+                <node name="rgb_camera_node" pkg="rgb_camera_pkg" type="rgb_camera_pkg" ns="left_setup" >
+                    <param name="dev_val" type="int" value="0" />
+                </node>
 
-<node name="Blaze_node" pkg="basler_camera_pkg" type="basler_camera_pkg"  ns="left_setup">
-    <param name="serial_num" type="string" value="23882275" />
-</node>    
+                <node name="Blaze_node" pkg="basler_camera_pkg" type="basler_camera_pkg"  ns="left_setup">
+                    <param name="serial_num" type="string" value="23882275" />
+                </node>    
 
 
 <!-- Starting Right Setup -->
 
-<node name="rgb_camera_node" pkg="rgb_camera_pkg" type="rgb_camera_pkg" ns="right_setup">
-    <param name="dev_val" type="int" value="1" />
-</node>
+                <node name="rgb_camera_node" pkg="rgb_camera_pkg" type="rgb_camera_pkg" ns="right_setup">
+                    <param name="dev_val" type="int" value="1" />
+                </node>
 
 
-<node name="Blaze_node" pkg="basler_camera_pkg" type="basler_camera_pkg"  ns="right_setup">
-    <param name="serial_num" type="string" value="24017320" />
-</node>    
+                <node name="Blaze_node" pkg="basler_camera_pkg" type="basler_camera_pkg"  ns="right_setup">
+                    <param name="serial_num" type="string" value="24017320" />
+                </node>    
 
-
+<!-- <node name="Fusion_node" pkg="fusion_pkg" type="fusion_pkg"/> -->
 
 </launch>

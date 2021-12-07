@@ -153,15 +153,16 @@ int main(int argc, char* argv[])
     std::cout<<"serial_num"<<serial_num<<'\n';
     CBlazeCamera m_blazeCamera;
     CBlazeCamera::InitProducer();
+    int nBuffer =10;
 
     cv::Mat blazeCameraMatrix, blazeDistortion;
     // getBlazeCalibration(m_blazeCamera);
 
     setupBlazeCamera(m_blazeCamera, serial_num);
     getBlazeCalibration(m_blazeCamera);
-    m_blazeCamera.PrepareAcquisition(3);
+    m_blazeCamera.PrepareAcquisition(nBuffer);
 
-    for (size_t i = 0; i < 3; ++i) {
+    for (size_t i = 0; i < nBuffer; ++i) {
             m_blazeCamera.QueueBuffer(i);
            
         }
