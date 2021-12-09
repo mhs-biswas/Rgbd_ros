@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   sensor_msgs
   tf
+  pcl_conversions
 )
 
 ## System dependencies are found with CMake's conventions
@@ -111,7 +112,7 @@ include_directories(${Eigen_INCLUDE_DIRS})
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES rel_tranformation_pkg
- CATKIN_DEPENDS cv_bridge image_transport pcl_ros roscpp sensor_msgs tf
+ CATKIN_DEPENDS cv_bridge image_transport pcl_ros roscpp sensor_msgs tf pcl_conversions
 #  DEPENDS system_lib
 )
 

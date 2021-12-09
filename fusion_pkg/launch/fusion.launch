@@ -16,9 +16,8 @@
 
 <!-- run in separate terminals: 
 ```
-rosrun fusion_pkg fusion_pkg __name:=Left_fusion _pointcloud_topic:="/left_setup/Blaze_node" _image_topic:="/left_setup/rgb_camera_node" _calib_file_path:="Calibration/Left_setup_calib/calib_data.xml"
-
-rosrun fusion_pkg fusion_pkg __name:=right_fusion _pointcloud_topic:="/right_setup/Blaze_node" _image_topic:="/right_setup/rgb_camera_node" _calib_file_path:="Calibration/Right_setup_calib/calib_data.xml"
+rosrun fusion_pkg fusion_pkg __name:=right_fusion _pointcloud_topic:="/Blaze_node_right" _image_topic:="/rgb_camera_node_right" _calib_file_path:="Calibration/Right_setup_calib/calib_data.xml" _publish_pcl_topic:="/cloud_pcl_right"
+rosrun fusion_pkg fusion_pkg __name:=Left_fusion _pointcloud_topic:="/Blaze_node_left" _image_topic:="/rgb_camera_node_left" _calib_file_path:="Calibration/Left_setup_calib/calib_data.xml" _publish_pcl_topic:="/cloud_pcl_left"
 ``` -->
 
 
