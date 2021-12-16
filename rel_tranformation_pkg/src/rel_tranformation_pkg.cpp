@@ -23,7 +23,8 @@
 #include <boost/foreach.hpp>
 #include <pcl_conversions/pcl_conversions.h>
 // #include <icp.h>
-#include <pcl-1.10/pcl/registration/icp.h>
+#include <pcl-1.10/pcl/registration/icp_nl.h>
+#include <pcl-1.10/pcl/registration/gicp.h>
 #include <iostream>
 #include <string>
 #include<pcl-1.10/pcl/io/ply_io.h>
@@ -38,11 +39,38 @@
 #include <iostream>
 #include <string>
 
-#include <pcl/io/ply_io.h>
-#include <pcl/point_types.h>
-#include <pcl/registration/icp.h>
-#include <pcl/visualization/pcl_visualizer.h>
-#include <pcl/console/time.h>   // TicToc
+#include <pcl-1.10/pcl/io/ply_io.h>
+#include <pcl-1.10/pcl/point_types.h>
+#include <pcl-1.10/pcl/registration/icp.h>
+#include <pcl-1.10/pcl/visualization/pcl_visualizer.h>
+#include <pcl-1.10/pcl/console/time.h>   // TicToc
+#include <pcl-1.10/pcl/correspondence.h>
+
+#include <pcl-1.10/pcl/io/pcd_io.h>
+#include <pcl-1.10/pcl/console/time.h>
+#include <pcl-1.10/pcl/features/normal_3d.h>
+#include <pcl-1.10/pcl/features/fpfh.h>
+#include <pcl-1.10/pcl/registration/correspondence_estimation.h>
+#include <pcl-1.10/pcl/registration/correspondence_estimation_normal_shooting.h>
+#include <pcl-1.10/pcl/registration/correspondence_estimation_backprojection.h>
+#include <pcl-1.10/pcl/registration/correspondence_rejection_median_distance.h>
+#include <pcl-1.10/pcl/registration/correspondence_rejection_surface_normal.h>
+#include <pcl-1.10/pcl/registration/transformation_estimation_point_to_plane_lls.h>
+#include <pcl-1.10/pcl/registration/default_convergence_criteria.h>
+
+#include <pcl-1.10/pcl/console/parse.h>
+#include <pcl-1.10/pcl/point_types.h>
+#include <pcl-1.10/pcl/point_cloud.h>
+#include <pcl-1.10/pcl/point_representation.h>
+
+#include <pcl-1.10/pcl/io/pcd_io.h>
+#include <pcl-1.10/pcl/conversions.h>
+#include <pcl-1.10/pcl/filters/uniform_sampling.h>
+#include <pcl-1.10/pcl/features/normal_3d.h>
+#include <pcl-1.10/pcl/features/fpfh.h>
+#include <pcl-1.10/pcl/registration/correspondence_estimation.h>
+#include <pcl-1.10/pcl/registration/correspondence_rejection_distance.h>
+#include <pcl-1.10/pcl/registration/transformation_estimation_svd.h>
 
 // typedef pcl::PointXYZ PointT;
 // typedef pcl::PointCloud<PointT> PointCloudT;
@@ -238,9 +266,12 @@
 //   return (0);
 // }
 
-
+using namespace pcl::console;
+using namespace pcl::registration;
+// using namespace pcl;
 
 typedef pcl::PointCloud<pcl::PointXYZRGB> PointCloud;
+typedef pcl::PointCloud<pcl::Normal> PointCloud_norm;
 using namespace message_filters;
 
 PointCloud::Ptr pointcloud(new PointCloud);
@@ -250,72 +281,272 @@ PointCloud::Ptr pcl_tr(new PointCloud);
 ros::Publisher  pcl_output;
 int done =0;
 Eigen::Matrix4f transformation = Eigen::Matrix4f::Identity();
-Eigen::Matrix4f rel_tf = Eigen::Matrix4f::Identity();
+Eigen::Matrix4d rel_tf = Eigen::Matrix4d::Identity();
+// ================================================================
+
+void
+estimateKeypoints (const PointCloud::ConstPtr &src, 
+                   const PointCloud::ConstPtr &tgt,
+                   PointCloud &keypoints_src,
+                   PointCloud &keypoints_tgt)
+{
+  // Get an uniform grid of keypoints
+  std::cout<<"EstimateKeyPoint: \n";
+  pcl::UniformSampling<pcl::PointXYZRGB> uniform;
+  uniform.setRadiusSearch (0.1);  // 1m
+
+  uniform.setInputCloud (src);
+  uniform.filter (keypoints_src);
+
+  uniform.setInputCloud (tgt);
+  uniform.filter (keypoints_tgt);
+
+  // For debugging purposes only: uncomment the lines below and use pcl_viewer to view the results, i.e.:
+  // pcl_viewer source_pcd keypoints_src.pcd -ps 1 -ps 10
+//   savePCDFileBinary ("keypoints_src.pcd", keypoints_src);
+//   savePCDFileBinary ("keypoints_tgt.pcd", keypoints_tgt);
+}
+
+// ================================================================
+void
+estimateNormals (const PointCloud::ConstPtr &src, 
+                 const PointCloud::ConstPtr &tgt,
+                 PointCloud_norm &normals_src,
+                 PointCloud_norm &normals_tgt)
+{
+  std::cout<<"EstimateNormals: \n";
+  pcl::NormalEstimation<pcl::PointXYZRGB, pcl::Normal> normal_est;
+  normal_est.setInputCloud (src);
+  normal_est.setRadiusSearch (0.05);  // 50cm
+  normal_est.compute (normals_src);
+
+  normal_est.setInputCloud (tgt);
+  normal_est.compute (normals_tgt);
+
+//   // For debugging purposes only: uncomment the lines below and use pcl_viewer to view the results, i.e.:
+//   // pcl_viewer normals_src.pcd
+//   PointCloud<PointNormal> s, t;
+//   copyPointCloud (*src, s);
+//   copyPointCloud (normals_src, s);
+//   copyPointCloud (*tgt, t);
+//   copyPointCloud (normals_tgt, t);
+//   savePCDFileBinary ("normals_src.pcd", s);
+//   savePCDFileBinary ("normals_tgt.pcd", t);
+}
+
+// ================================================================
+void
+estimateFPFH (const PointCloud::ConstPtr &src, 
+              const PointCloud::ConstPtr &tgt,
+              const PointCloud_norm::Ptr &normals_src,
+              const PointCloud_norm::Ptr &normals_tgt,
+              const PointCloud::Ptr &keypoints_src,
+              const PointCloud::Ptr &keypoints_tgt,
+              pcl::PointCloud<pcl::FPFHSignature33> &fpfhs_src,
+              pcl::PointCloud<pcl::FPFHSignature33> &fpfhs_tgt)
+{   
+  std::cout<<"EstimateFPFH: \n";
+  pcl::FPFHEstimation<pcl::PointXYZRGB, pcl::Normal, pcl::FPFHSignature33> fpfh_est;
+  fpfh_est.setInputCloud (keypoints_src);
+  fpfh_est.setInputNormals (normals_src);
+  fpfh_est.setRadiusSearch (0.1); // 1m
+  fpfh_est.setSearchSurface (src);
+  fpfh_est.compute (fpfhs_src);
+
+  fpfh_est.setInputCloud (keypoints_tgt);
+  fpfh_est.setInputNormals (normals_tgt);
+  fpfh_est.setSearchSurface (tgt);
+  fpfh_est.compute (fpfhs_tgt);
+
+  // For debugging purposes only: uncomment the lines below and use pcl_viewer to view the results, i.e.:
+  // pcl_viewer fpfhs_src.pcd
+//   PCLPointCloud2 s, t, out;
+//   toPCLPointCloud2 (*keypoints_src, s); toPCLPointCloud2 (fpfhs_src, t); concatenateFields (s, t, out);
+//   savePCDFile ("fpfhs_src.pcd", out);
+//   toPCLPointCloud2 (*keypoints_tgt, s); toPCLPointCloud2 (fpfhs_tgt, t); concatenateFields (s, t, out);
+//   savePCDFile ("fpfhs_tgt.pcd", out);
+}
+// ================================================================
+void
+findCorrespondences (const pcl::PointCloud<pcl::FPFHSignature33>::Ptr &fpfhs_src,
+                     const pcl::PointCloud<pcl::FPFHSignature33>::Ptr &fpfhs_tgt,
+                     pcl::Correspondences &all_correspondences)
+{   
+  std::cout<<"Find Correspondence: \n";
+  //CorrespondenceEstimationNormalShooting<PointT, PointT, PointT> est;
+  //CorrespondenceEstimation<PointT, PointT> est;
+  pcl::registration::CorrespondenceEstimation<pcl::FPFHSignature33, pcl::FPFHSignature33> est;
+  est.setInputSource (fpfhs_src);
+  est.setInputTarget (fpfhs_tgt);
+  
+//   est.setSourceNormals (src);
+//   est.setTargetNormals (tgt);
+//   est.setKSearch (10);
+  est.determineCorrespondences (all_correspondences);
+  //est.determineReciprocalCorrespondences (all_correspondences);
+}
+
+// ================================================================
+
+void
+rejectBadCorrespondences (const pcl::CorrespondencesPtr &all_correspondences,
+                          const PointCloud::Ptr &src,
+                          const PointCloud::Ptr &tgt,
+                          pcl::Correspondences &remaining_correspondences)
+{
+  std::cout<<"Reject Bad correspondence: \n";
+  pcl::registration::CorrespondenceRejectorDistance rej;
+  rej.setInputSource<pcl::PointXYZRGB> (src);
+  rej.setInputTarget<pcl::PointXYZRGB> (tgt);
+  rej.setMaximumDistance (1);    // 1m
+  rej.setInputCorrespondences (all_correspondences);
+  rej.getCorrespondences (remaining_correspondences);
+
+
+//   rej.setMedianFactor (8.79241104);
+//   rej.setInputCorrespondences (all_correspondences);
+
+//   rej.getCorrespondences (remaining_correspondences);
+//   return;
+  
+//   pcl::CorrespondencesPtr remaining_correspondences_temp (new pcl::Correspondences);
+//   rej.getCorrespondences (*remaining_correspondences_temp);
+//   PCL_DEBUG ("[rejectBadCorrespondences] Number of correspondences remaining after rejection: %d\n", remaining_correspondences_temp->size ());
+
+//   // Reject if the angle between the normals is really off
+//   pcl::registration::CorrespondenceRejectorSurfaceNormal rej_normals;
+//   rej_normals.setThreshold (std::acos (pcl::deg2rad (45.0)));
+//   rej_normals.initializeDataContainer<pcl::PointXYZRGB, pcl::PointXYZRGB> ();
+//   rej_normals.setInputCloud<pcl::PointXYZRGB> (src);
+//   rej_normals.setInputNormals<pcl::PointXYZRGB, pcl::PointXYZRGB> (src);
+//   rej_normals.setInputTarget<pcl::PointXYZRGB> (tgt);
+//   rej_normals.setTargetNormals<pcl::PointXYZRGB, pcl::PointXYZRGB> (tgt);
+//   rej_normals.setInputCorrespondences (remaining_correspondences_temp);
+//   rej_normals.getCorrespondences (remaining_correspondences);
+}
+
+// ==================================================================
+
+// void
+// findTransformation (const PointCloud::ConstPtr &src,
+//                     const PointCloud::ConstPtr &tgt,
+//                     const pcl::CorrespondencesPtr &correspondences,
+//                     Eigen::Matrix4d &transform)
+// {
+//   pcl::registration::TransformationEstimationPointToPlaneLLS<pcl::PointXYZRGB, pcl::PointXYZRGB, double> trans_est;
+//   trans_est.estimateRigidTransformation (*src, *tgt, *correspondences, transform);
+// }
+
+// ==================================================================
+
 
 
 void callback(const PointCloud::ConstPtr& msg_left, const PointCloud::ConstPtr& msg_right)
-{
+{   
+
+    /*
+        msg_left is my source
+        msg_right is my target
+    */
+
+
     printf ("Cloud_left: width = %d, height = %d\n", msg_left->width, msg_left->height);
     printf ("Cloud_right: width = %d, height = %d\n", msg_right->width, msg_right->height);
-    // pointcloud = pcl::PointCloud<pcl::PointXYZRGB>::Ptr(new pcl::PointCloud<pcl::PointXYZRGB>(width, height));
-    pointcloud = PointCloud::Ptr(new PointCloud(msg_left->width, msg_left->height));
-    pointcloud->header.frame_id = "map";
-//   msg_left->header.frame_id = "new_map";
-//   BOOST_FOREACH (const pcl::PointXYZRGB& pt_left, msg_left->points)
-//   {
-//     //   printf ("\t(%f, %f, %f, %d, %d, %d)\n", pt_left.x, pt_left.y, pt_left.z, pt_left.r, pt_left.g, pt_left.b);
-//     //   if((pt_left.r>100 && pt_left.r<255) && (pt_left.g>100 && pt_left.g<255) && (pt_left.b>0 && pt_left.b<10))
-//     //   {
-//     //    printf ("\t(%f, %f, %f, %d, %d, %d)\n", pt_left.x, pt_left.y, pt_left.z, pt_left.r, pt_left.g, pt_left.b);   
-//     //   }
-//     //   else 
-//     //   {
-//     //       pt_left.r = 255;
-//     //       pt_left.g = 255;
-//     //       pt_left.b = 255;
-//     //   }
-//   }
-//   pcl_output.publish(*msg_left);
+                                                        // pointcloud = pcl::PointCloud<pcl::PointXYZRGB>::Ptr(new pcl::PointCloud<pcl::PointXYZRGB>(width, height));
+                                                        pointcloud = PointCloud::Ptr(new PointCloud(msg_left->width, msg_left->height));
+                                                        pointcloud->header.frame_id = "map";
+                                                        //                 //   msg_left->header.frame_id = "new_map";
+                                                        //                 //   BOOST_FOREACH (const pcl::PointXYZRGB& pt_left, msg_left->points)
+                                                        //                 //   {
+                                                        //                 //     //   printf ("\t(%f, %f, %f, %d, %d, %d)\n", pt_left.x, pt_left.y, pt_left.z, pt_left.r, pt_left.g, pt_left.b);
+                                                        //                 //     //   if((pt_left.r>100 && pt_left.r<255) && (pt_left.g>100 && pt_left.g<255) && (pt_left.b>0 && pt_left.b<10))
+                                                        //                 //     //   {
+                                                        //                 //     //    printf ("\t(%f, %f, %f, %d, %d, %d)\n", pt_left.x, pt_left.y, pt_left.z, pt_left.r, pt_left.g, pt_left.b);   
+                                                        //                 //     //   }
+                                                        //                 //     //   else 
+                                                        //                 //     //   {
+                                                        //                 //     //       pt_left.r = 255;
+                                                        //                 //     //       pt_left.g = 255;
+                                                        //                 //     //       pt_left.b = 255;
+                                                        //                 //     //   }
+                                                        //                 //   }
+                                                        //                 //   pcl_output.publish(*msg_left);
 
-//   BOOST_FOREACH (const pcl::PointXYZRGB& pt_right, msg_right->points)
-//     {
+                                                        //                 //   BOOST_FOREACH (const pcl::PointXYZRGB& pt_right, msg_right->points)
+                                                        //                 //     {
 
-//     }
-    // printf ("\t(%f, %f, %f, %d, %d, %d)\n", pt.x, pt.y, pt.z, pt.r, pt.g, pt.b);
+                                                        //                 //     }
+                                                        //                     // printf ("\t(%f, %f, %f, %d, %d, %d)\n", pt.x, pt.y, pt.z, pt.r, pt.g, pt.b);
 
-    // transformation(0,3)=2.5;
-    // test_pcl = PointCloud::Ptr(new PointCloud(msg_left->width, msg_left->height));
-    // pcl::transformPointCloud (*msg_right, *test_pcl, transformation);
-    // *pcl_tr= *test_pcl;
+                                                        //                     // transformation(0,3)=2.5;
+                                                        //                     // test_pcl = PointCloud::Ptr(new PointCloud(msg_left->width, msg_left->height));
+                                                        //                     // pcl::transformPointCloud (*msg_right, *test_pcl, transformation);
+                                                        //                     // *pcl_tr= *test_pcl;
 
-    pcl::IterativeClosestPoint<pcl::PointXYZRGB, pcl::PointXYZRGB> icp;
-    if (done == 0)
-    {
+                                                        // pcl::IterativeClosestPoint<pcl::PointXYZRGB, pcl::PointXYZRGB> icp;
+                                                        // if (done == 0)
+                                                        // {
+                                                            
+                                                        //     icp.setInputSource(msg_left);
+                                                        //     icp.setInputTarget(msg_right);
+                                                        //     icp.setMaxCorrespondenceDistance (0.1);
+                                                        //     icp.setMaximumIterations (100);
+                                                        //     icp.setTransformationEpsilon (1e-10);
+                                                        //     icp.setEuclideanFitnessEpsilon (0.01);
+                                                            
+                                                        //     // pointcloud= *msg_right;
+                                                        //     PointCloud Final;
+                                                        //     icp.align(Final);
+                                                        //     transformation = icp.getFinalTransformation ();
+                                                        //     std::cout << "has converged:" << icp.hasConverged() << " score: " <<icp.getFitnessScore() << std::endl;
+                                                        //     // transformation(1,3) = 0.08;
+                                                        // }
+                                                        // done =1;
+
         
-        icp.setInputSource(msg_left);
-        icp.setInputTarget(msg_right);
-        icp.setMaxCorrespondenceDistance (0.1);
-        icp.setMaximumIterations (100);
-        icp.setTransformationEpsilon (1e-9);
-        icp.setEuclideanFitnessEpsilon (1);
+
+    if (done==0)
+    { 
+        PointCloud_norm::Ptr normals_src (new PointCloud_norm), 
+                          normals_tgt (new PointCloud_norm);
+        estimateNormals (msg_left, msg_right, *normals_src, *normals_tgt);
+
+        PointCloud::Ptr keypoints_src (new PointCloud), keypoints_tgt (new PointCloud);
         
-        // pointcloud= *msg_right;
-        PointCloud Final;
-        icp.align(Final);
-        transformation = icp.getFinalTransformation ();
-        transformation(1,3) = 0.08;
+        estimateKeypoints (msg_left, msg_right, *keypoints_src, *keypoints_tgt);
+
+        pcl::PointCloud<pcl::FPFHSignature33>::Ptr fpfhs_src (new pcl::PointCloud<pcl::FPFHSignature33>), 
+                                   fpfhs_tgt (new pcl::PointCloud<pcl::FPFHSignature33>);
+        estimateFPFH (msg_left, msg_right, normals_src, normals_tgt, keypoints_src, keypoints_tgt, *fpfhs_src, *fpfhs_tgt);
+        
+
+        pcl::CorrespondencesPtr all_correspondences (new pcl::Correspondences), 
+                     good_correspondences (new pcl::Correspondences);
+        findCorrespondences (fpfhs_src, fpfhs_tgt, *all_correspondences);
+        rejectBadCorrespondences (all_correspondences, keypoints_src, keypoints_tgt, *good_correspondences);
+        
+        pcl::registration::TransformationEstimationSVD<pcl::PointXYZRGB, pcl::PointXYZRGB> trans_est;
+        trans_est.estimateRigidTransformation (*keypoints_src, *keypoints_tgt, *good_correspondences, transformation);
+
+        // transformation = rel_tf;
     }
-    done =1;
-    std::cout<<"TF obtained: \n"<<transformation<<'\n';
-    // DEFINING MY OWN Tranformation Matrix:
-    // transformation(0,3)=2.5;
+    done=1;
 
-    // icp.transformCloud(*msg_left,*pointcloud,transformation);
+
+
+    std::cout<<"TF obtained: \n"<<transformation<<'\n';
+                                                // DEFINING MY OWN Tranformation Matrix:
+                                                // transformation(0,3)=2.5;
+
+                                                // icp.transformCloud(*msg_left,*pointcloud,transformation);
     
-    pcl::transformPointCloud (*msg_right, *pointcloud, transformation);
+    // Transform using the obatined rigid transformation matrix
+    pcl::transformPointCloud(*msg_right, *pointcloud, transformation);
 
     (*pointcloud)=(*pointcloud)+(*msg_left);
 
+
+    // Publish processed point cloud
     pcl_output.publish(pointcloud);
     printf("aligned \n");
 
