@@ -35,10 +35,11 @@
 #include <pcl-1.10/pcl/visualization/pcl_visualizer.h>
 #include <pcl-1.10/pcl/console/time.h> 
 #include <pcl-1.10/pcl/keypoints/sift_keypoint.h>
-
+#include <pcl-1.10/pcl/registration/correspondence_rejection_sample_consensus.h>
 #include <iostream>
 #include <string>
-
+#include <pcl-1.10/pcl/features/pfh.h>
+#include <pcl-1.10/pcl/features/pfhrgb.h>
 #include <pcl-1.10/pcl/io/ply_io.h>
 #include <pcl-1.10/pcl/point_types.h>
 #include <pcl-1.10/pcl/registration/icp.h>
@@ -57,7 +58,8 @@
 #include <pcl-1.10/pcl/registration/correspondence_rejection_surface_normal.h>
 #include <pcl-1.10/pcl/registration/transformation_estimation_point_to_plane_lls.h>
 #include <pcl-1.10/pcl/registration/default_convergence_criteria.h>
-
+#include <pcl-1.10/pcl/filters/statistical_outlier_removal.h>
+#include <pcl-1.10/pcl/filters/voxel_grid.h>
 #include <pcl-1.10/pcl/console/parse.h>
 #include <pcl-1.10/pcl/point_types.h>
 #include <pcl-1.10/pcl/point_cloud.h>
@@ -279,6 +281,8 @@ PointCloud::Ptr test_pcl(new PointCloud);
 PointCloud::Ptr pcl_tr(new PointCloud);
 
 ros::Publisher  pcl_output;
+ros::Publisher  left_keypts;
+ros::Publisher  right_keypts;
 int done =0;
 Eigen::Matrix4f transformation = Eigen::Matrix4f::Identity();
 Eigen::Matrix4d rel_tf = Eigen::Matrix4d::Identity();
@@ -312,11 +316,11 @@ estimateKeypoints (const PointCloud::ConstPtr &src,
 const float min_scale = 0.01f; // the standard deviation of the smallest scale in the scale space
 const int n_octaves = 3;  // the number of octaves (i.e. doublings of scale) to compute
 const int n_scales_per_octave = 4; // the number of scales to compute within each octave
-const float min_contrast = 0.001f; // the minimum contrast required for detection
+const float min_contrast = 0.0001f; // the minimum contrast required for detection
 
 void
-estimate_SIFT_Keypoints (const PointCloud::ConstPtr &src, 
-                   const PointCloud::ConstPtr &tgt,
+estimate_SIFT_Keypoints (const PointCloud::Ptr &src, 
+                   const PointCloud::Ptr &tgt,
                    pcl::PointCloud<pcl::PointWithScale>::Ptr &keypoints_src,
                    pcl::PointCloud<pcl::PointWithScale>::Ptr &keypoints_tgt)
 {
@@ -352,8 +356,8 @@ estimate_SIFT_Keypoints (const PointCloud::ConstPtr &src,
 
 // ================================================================
 void
-estimateNormals (const PointCloud::ConstPtr &src, 
-                 const PointCloud::ConstPtr &tgt,
+estimateNormals (const PointCloud::Ptr &src, 
+                 const PointCloud::Ptr &tgt,
                  PointCloud_norm &normals_src,
                  PointCloud_norm &normals_tgt)
 {
@@ -361,7 +365,7 @@ estimateNormals (const PointCloud::ConstPtr &src,
   pcl::NormalEstimation<pcl::PointXYZRGB, pcl::Normal> normal_est;
   normal_est.setSearchMethod(pcl::search::KdTree<pcl::PointXYZRGB>::Ptr(new pcl::search::KdTree<pcl::PointXYZRGB>));
   normal_est.setInputCloud (src);
-  normal_est.setRadiusSearch (0.03);  // 50cm
+  normal_est.setRadiusSearch (0.25);  // 50cm
   normal_est.compute (normals_src);
 
   normal_est.setInputCloud (tgt);
@@ -379,51 +383,51 @@ estimateNormals (const PointCloud::ConstPtr &src,
 }
 
 // ================================================================
-void
-estimateFPFH (const PointCloud::ConstPtr &src, 
-              const PointCloud::ConstPtr &tgt,
-              const PointCloud_norm::Ptr &normals_src,
-              const PointCloud_norm::Ptr &normals_tgt,
-              const PointCloud::Ptr &keypoints_src,
-              const PointCloud::Ptr &keypoints_tgt,
-              pcl::PointCloud<pcl::FPFHSignature33> &fpfhs_src,
-              pcl::PointCloud<pcl::FPFHSignature33> &fpfhs_tgt)
-{   
-  std::cout<<"EstimateFPFH: \n";
-  pcl::FPFHEstimation<pcl::PointXYZRGB, pcl::Normal, pcl::FPFHSignature33> fpfh_est;
-  fpfh_est.setInputCloud (keypoints_src);
-  fpfh_est.setInputNormals (normals_src);
-  fpfh_est.setRadiusSearch (0.1); // 1m
-  fpfh_est.setSearchSurface (src);
-  fpfh_est.compute (fpfhs_src);
+// void
+// estimateFPFH (const PointCloud::Ptr &src, 
+//               const PointCloud::Ptr &tgt,
+//               const PointCloud_norm::Ptr &normals_src,
+//               const PointCloud_norm::Ptr &normals_tgt,
+//               const PointCloud::Ptr &keypoints_src,
+//               const PointCloud::Ptr &keypoints_tgt,
+//               pcl::PointCloud<pcl::PFHRGBSignature250> &fpfhs_src,
+//               pcl::PointCloud<pcl::PFHRGBSignature250> &fpfhs_tgt)
+// {   
+//   std::cout<<"EstimateFPFH: \n";
+//   pcl::FPFHEstimation<pcl::PointXYZRGB, pcl::Normal, pcl::PFHRGBSignature250> fpfh_est;
+//   fpfh_est.setInputCloud (keypoints_src);
+//   fpfh_est.setInputNormals (normals_src);
+//   fpfh_est.setRadiusSearch (0.1); // 1m
+//   fpfh_est.setSearchSurface (src);
+//   fpfh_est.compute (fpfhs_src);
 
-  fpfh_est.setInputCloud (keypoints_tgt);
-  fpfh_est.setInputNormals (normals_tgt);
-  fpfh_est.setSearchSurface (tgt);
-  fpfh_est.compute (fpfhs_tgt);
+//   fpfh_est.setInputCloud (keypoints_tgt);
+//   fpfh_est.setInputNormals (normals_tgt);
+//   fpfh_est.setSearchSurface (tgt);
+//   fpfh_est.compute (fpfhs_tgt);
 
-  // For debugging purposes only: uncomment the lines below and use pcl_viewer to view the results, i.e.:
-  // pcl_viewer fpfhs_src.pcd
-//   PCLPointCloud2 s, t, out;
-//   toPCLPointCloud2 (*keypoints_src, s); toPCLPointCloud2 (fpfhs_src, t); concatenateFields (s, t, out);
-//   savePCDFile ("fpfhs_src.pcd", out);
-//   toPCLPointCloud2 (*keypoints_tgt, s); toPCLPointCloud2 (fpfhs_tgt, t); concatenateFields (s, t, out);
-//   savePCDFile ("fpfhs_tgt.pcd", out);
-}
+//   // For debugging purposes only: uncomment the lines below and use pcl_viewer to view the results, i.e.:
+//   // pcl_viewer fpfhs_src.pcd
+// //   PCLPointCloud2 s, t, out;
+// //   toPCLPointCloud2 (*keypoints_src, s); toPCLPointCloud2 (fpfhs_src, t); concatenateFields (s, t, out);
+// //   savePCDFile ("fpfhs_src.pcd", out);
+// //   toPCLPointCloud2 (*keypoints_tgt, s); toPCLPointCloud2 (fpfhs_tgt, t); concatenateFields (s, t, out);
+// //   savePCDFile ("fpfhs_tgt.pcd", out);
+// }
 
 // ================================================================
 void
-estimate_SIFT_FPFH (const PointCloud::ConstPtr &src, 
-              const PointCloud::ConstPtr &tgt,
+estimate_SIFT_FPFH (const PointCloud::Ptr &src, 
+              const PointCloud::Ptr &tgt,
               const PointCloud_norm::Ptr &normals_src,
               const PointCloud_norm::Ptr &normals_tgt,
               pcl::PointCloud<pcl::PointWithScale>::Ptr &keypoints_src,
               pcl::PointCloud<pcl::PointWithScale>::Ptr &keypoints_tgt,
-              pcl::PointCloud<pcl::FPFHSignature33> &fpfhs_src,
-              pcl::PointCloud<pcl::FPFHSignature33> &fpfhs_tgt)
+              pcl::PointCloud<pcl::PFHRGBSignature250> &fpfhs_src,
+              pcl::PointCloud<pcl::PFHRGBSignature250> &fpfhs_tgt)
 {   
   std::cout<<"Estimate_SIFT_FPFH: \n";
-  pcl::FPFHEstimation<pcl::PointXYZRGB, pcl::Normal, pcl::FPFHSignature33> fpfh_est;
+  pcl::PFHRGBEstimation<pcl::PointXYZRGB, pcl::Normal, pcl::PFHRGBSignature250> fpfh_est;
   fpfh_est.setSearchMethod(pcl::search::KdTree<pcl::PointXYZRGB>::Ptr(new pcl::search::KdTree<pcl::PointXYZRGB>));
   
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr keypoints_xyzrgb_src(new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -435,7 +439,7 @@ estimate_SIFT_FPFH (const PointCloud::ConstPtr &src,
 
   fpfh_est.setInputCloud (keypoints_xyzrgb_src);
   fpfh_est.setInputNormals (normals_src);
-  fpfh_est.setRadiusSearch (0.06); // 1m
+  fpfh_est.setRadiusSearch (0.25); // 1m
   fpfh_est.setSearchSurface (src);
   fpfh_est.compute (fpfhs_src);
 
@@ -457,14 +461,14 @@ estimate_SIFT_FPFH (const PointCloud::ConstPtr &src,
 
 // ================================================================
 void
-findCorrespondences (const pcl::PointCloud<pcl::FPFHSignature33>::Ptr &fpfhs_src,
-                     const pcl::PointCloud<pcl::FPFHSignature33>::Ptr &fpfhs_tgt,
+findCorrespondences (const pcl::PointCloud<pcl::PFHRGBSignature250>::Ptr &fpfhs_src,
+                     const pcl::PointCloud<pcl::PFHRGBSignature250>::Ptr &fpfhs_tgt,
                      pcl::Correspondences &all_correspondences)
 {   
   std::cout<<"Find Correspondence: \n";
   //CorrespondenceEstimationNormalShooting<PointT, PointT, PointT> est;
   //CorrespondenceEstimation<PointT, PointT> est;
-  pcl::registration::CorrespondenceEstimation<pcl::FPFHSignature33, pcl::FPFHSignature33> est;
+  pcl::registration::CorrespondenceEstimation<pcl::PFHRGBSignature250, pcl::PFHRGBSignature250> est;
   est.setInputSource (fpfhs_src);
   est.setInputTarget (fpfhs_tgt);
   
@@ -477,42 +481,53 @@ findCorrespondences (const pcl::PointCloud<pcl::FPFHSignature33>::Ptr &fpfhs_src
 
 // ================================================================
 
-// void
-// rejectBadCorrespondences (const pcl::CorrespondencesPtr &all_correspondences,
-//                           const PointCloud::Ptr &src,
-//                           const PointCloud::Ptr &tgt,
-//                           pcl::Correspondences &remaining_correspondences)
-// {
-//   std::cout<<"Reject Bad correspondence: \n";
-//   pcl::registration::CorrespondenceRejectorDistance rej;
-//   rej.setInputSource<pcl::PointXYZRGB> (src);
-//   rej.setInputTarget<pcl::PointXYZRGB> (tgt);
-//   rej.setMaximumDistance (1);    // 1m
+void
+rejectBadCorrespondences (const pcl::CorrespondencesPtr &all_correspondences,
+                          const pcl::PointCloud<pcl::PointWithScale>::Ptr &src,
+                          const pcl::PointCloud<pcl::PointWithScale>::Ptr &tgt,
+                          pcl::Correspondences &remaining_correspondences)
+{
+
+  pcl::PointCloud <pcl::PointXYZRGB>::Ptr keypoints_src_xyzrgb(new pcl::PointCloud <pcl::PointXYZRGB>);
+  pcl::PointCloud <pcl::PointXYZRGB>::Ptr keypoints_tgt_xyzrgb(new pcl::PointCloud <pcl::PointXYZRGB>);
+  pcl::copyPointCloud(*src, *keypoints_src_xyzrgb);
+  pcl::copyPointCloud(*tgt, *keypoints_tgt_xyzrgb);
+
+  std::cout<<"Reject Bad correspondence: \n";
+  pcl::registration::CorrespondenceRejectorSampleConsensus<pcl::PointXYZRGB> rej;
+  rej.setInputSource (keypoints_src_xyzrgb);
+  rej.setInputTarget (keypoints_tgt_xyzrgb);
+  // rej.setMaximumDistance (1);    // 1m
+
+  rej.setInlierThreshold(0.1);
+  rej.setMaximumIterations(5000);
+  rej.setRefineModel(true);//false
+
+  rej.setInputCorrespondences (all_correspondences);
+  rej.getCorrespondences (remaining_correspondences);
+
+
+//   rej.setMedianFactor (8.79241104);
 //   rej.setInputCorrespondences (all_correspondences);
+
 //   rej.getCorrespondences (remaining_correspondences);
-
-
-// //   rej.setMedianFactor (8.79241104);
-// //   rej.setInputCorrespondences (all_correspondences);
-
-// //   rej.getCorrespondences (remaining_correspondences);
-// //   return;
+//   return;
   
-// //   pcl::CorrespondencesPtr remaining_correspondences_temp (new pcl::Correspondences);
-// //   rej.getCorrespondences (*remaining_correspondences_temp);
-// //   PCL_DEBUG ("[rejectBadCorrespondences] Number of correspondences remaining after rejection: %d\n", remaining_correspondences_temp->size ());
+//   pcl::CorrespondencesPtr remaining_correspondences_temp (new pcl::Correspondences);
+//   rej.getCorrespondences (*remaining_correspondences_temp);
+//   PCL_DEBUG ("[rejectBadCorrespondences] Number of correspondences remaining after rejection: %d\n", remaining_correspondences_temp->size ());
 
-// //   // Reject if the angle between the normals is really off
-// //   pcl::registration::CorrespondenceRejectorSurfaceNormal rej_normals;
-// //   rej_normals.setThreshold (std::acos (pcl::deg2rad (45.0)));
-// //   rej_normals.initializeDataContainer<pcl::PointXYZRGB, pcl::PointXYZRGB> ();
-// //   rej_normals.setInputCloud<pcl::PointXYZRGB> (src);
-// //   rej_normals.setInputNormals<pcl::PointXYZRGB, pcl::PointXYZRGB> (src);
-// //   rej_normals.setInputTarget<pcl::PointXYZRGB> (tgt);
-// //   rej_normals.setTargetNormals<pcl::PointXYZRGB, pcl::PointXYZRGB> (tgt);
-// //   rej_normals.setInputCorrespondences (remaining_correspondences_temp);
-// //   rej_normals.getCorrespondences (remaining_correspondences);
-// }
+//   // Reject if the angle between the normals is really off
+//   pcl::registration::CorrespondenceRejectorSurfaceNormal rej_normals;
+//   rej_normals.setThreshold (std::acos (pcl::deg2rad (45.0)));
+//   rej_normals.initializeDataContainer<pcl::PointXYZRGB, pcl::PointXYZRGB> ();
+//   rej_normals.setInputCloud<pcl::PointXYZRGB> (src);
+//   rej_normals.setInputNormals<pcl::PointXYZRGB, pcl::PointXYZRGB> (src);
+//   rej_normals.setInputTarget<pcl::PointXYZRGB> (tgt);
+//   rej_normals.setTargetNormals<pcl::PointXYZRGB, pcl::PointXYZRGB> (tgt);
+//   rej_normals.setInputCorrespondences (remaining_correspondences_temp);
+//   rej_normals.getCorrespondences (remaining_correspondences);
+}
 
 // ==================================================================
 
@@ -528,9 +543,10 @@ findCorrespondences (const pcl::PointCloud<pcl::FPFHSignature33>::Ptr &fpfhs_src
 
 // ==================================================================
 
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr keypoints_xyzrgb_src(new pcl::PointCloud<pcl::PointXYZRGB>);
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr keypoints_xyzrgb_tgt(new pcl::PointCloud<pcl::PointXYZRGB>);
 
-
-void callback(const PointCloud::ConstPtr& msg_left, const PointCloud::ConstPtr& msg_right)
+void callback(const PointCloud::ConstPtr& left, const PointCloud::ConstPtr& right)
 {   
 
     /*
@@ -538,9 +554,30 @@ void callback(const PointCloud::ConstPtr& msg_left, const PointCloud::ConstPtr& 
         msg_right is my target
     */
 
+   PointCloud::Ptr msg_left (new PointCloud(left->width, left->height));
+   PointCloud::Ptr msg_right (new PointCloud(left->width, left->height));
+  
+   *msg_left = *left;
+   *msg_right = *right;
 
-    printf ("Cloud_left: width = %d, height = %d\n", msg_left->width, msg_left->height);
-    printf ("Cloud_right: width = %d, height = %d\n", msg_right->width, msg_right->height);
+  //  for (pcl::PointCloud<pcl::PointXYZRGB>::iterator it = msg_left->begin(); it != msg_left->end(); it++) {
+  //     if ((it->r== 0) && (it->g== 0) && (it->b== 0)) {
+  //         // pcl::PointCloud<pcl::PointXYZRGB>::iterator dumy ;
+  //         // *dumy=*it;
+  //         msg_left->erase(it);
+          
+  //     }
+  //   }
+
+  //   for (pcl::PointCloud<pcl::PointXYZRGB>::iterator it = msg_right->begin(); it != msg_right->end(); it++) {
+  //     if ((it->r== 0) && (it->g== 0) && (it->b== 0)) {
+  //         msg_right->erase(it);
+  //     }
+  //   }
+
+
+    printf ("Cloud_left: width = %d, height = %d\n", left->width, left->height);
+    printf ("Cloud_right: width = %d, height = %d\n", right->width, right->height);
                                                         // pointcloud = pcl::PointCloud<pcl::PointXYZRGB>::Ptr(new pcl::PointCloud<pcl::PointXYZRGB>(width, height));
                                                         pointcloud = PointCloud::Ptr(new PointCloud(msg_left->width, msg_left->height));
                                                         pointcloud->header.frame_id = "map";
@@ -594,8 +631,40 @@ void callback(const PointCloud::ConstPtr& msg_left, const PointCloud::ConstPtr& 
 
         
 
-    if (done<1)
+    // if (done<1)
+    // { 
+        // PointCloud::Ptr left (new PointCloud(msg_left->width, msg_left->height));
+        // PointCloud::Ptr right (new PointCloud(msg_left->width, msg_left->height));
+        
+        // *left = *msg_left;
+        // *right = *msg_right;
+
+                      
+        // pcl_output.publish(right);
+        // *msg_left = *left;
+        // *msg_right = *right;
+    
+    keypoints_xyzrgb_src->header.frame_id = "map";
+    // pcl::PointCloud<pcl::PointXYZRGB>::Ptr keypoints_xyzrgb_tgt(new pcl::PointCloud<pcl::PointXYZRGB>);
+    keypoints_xyzrgb_tgt->header.frame_id = "map";
+
+    if (done <1)
     { 
+
+        pcl::VoxelGrid<pcl::PointXYZRGB> sor ;
+        sor.setInputCloud(msg_left);
+        // sor.setMeanK(50);
+        // sor.setStddevMulThresh(1);
+        sor.setLeafSize(0.01,0.01,0.01);
+        sor.filter(*msg_left) ;
+
+        // pcl::StatisticalOutlierRemoval<pcl::PointXYZRGB> sor ;
+        sor.setInputCloud(msg_right);
+        sor.setLeafSize(0.01,0.01,0.01);
+        // sor.setMeanK(50);
+        // sor.setStddevMulThresh(1);
+        sor.filter(*msg_right) ;
+        
         PointCloud_norm::Ptr normals_src (new PointCloud_norm), 
                           normals_tgt (new PointCloud_norm);
         estimateNormals (msg_left, msg_right, *normals_src, *normals_tgt);
@@ -609,8 +678,8 @@ void callback(const PointCloud::ConstPtr& msg_left, const PointCloud::ConstPtr& 
 
         estimate_SIFT_Keypoints(msg_left, msg_right, keypoints_src, keypoints_tgt);
 
-        pcl::PointCloud<pcl::FPFHSignature33>::Ptr fpfhs_src (new pcl::PointCloud<pcl::FPFHSignature33>), 
-                                   fpfhs_tgt (new pcl::PointCloud<pcl::FPFHSignature33>);
+        pcl::PointCloud<pcl::PFHRGBSignature250>::Ptr fpfhs_src (new pcl::PointCloud<pcl::PFHRGBSignature250>), 
+                                   fpfhs_tgt (new pcl::PointCloud<pcl::PFHRGBSignature250>);
         // estimateFPFH (msg_left, msg_right, normals_src, normals_tgt, keypoints_src, keypoints_tgt, *fpfhs_src, *fpfhs_tgt);
         
         estimate_SIFT_FPFH(msg_left,msg_right,normals_src, normals_tgt, keypoints_src, keypoints_tgt, *fpfhs_src, *fpfhs_tgt);
@@ -619,40 +688,65 @@ void callback(const PointCloud::ConstPtr& msg_left, const PointCloud::ConstPtr& 
                      good_correspondences (new pcl::Correspondences);
 
         // rejectBadCorrespondences (all_correspondences, keypoints_src, keypoints_tgt, *good_correspondences);
-        findCorrespondences (fpfhs_src, fpfhs_tgt, *good_correspondences);
-        // rejectBadCorrespondences (all_correspondences, keypoints_src, keypoints_tgt, *good_correspondences);
+        findCorrespondences (fpfhs_src, fpfhs_tgt, *all_correspondences);
+        rejectBadCorrespondences (all_correspondences, keypoints_src, keypoints_tgt, *good_correspondences);
 
         // for (const auto& corr : (*good_correspondences))
         // std::cerr << corr << std::endl;
 
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr keypoints_xyzrgb_src(new pcl::PointCloud<pcl::PointXYZRGB>);
+        
         pcl::copyPointCloud(*keypoints_src , *keypoints_xyzrgb_src);
 
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr keypoints_xyzrgb_tgt(new pcl::PointCloud<pcl::PointXYZRGB>);
+        
         pcl::copyPointCloud(*keypoints_tgt , *keypoints_xyzrgb_tgt);
 
         
         pcl::registration::TransformationEstimationSVD<pcl::PointXYZRGB, pcl::PointXYZRGB> trans_est;
-
+        
 
         trans_est.estimateRigidTransformation (*keypoints_xyzrgb_src, *keypoints_xyzrgb_tgt, *good_correspondences, transformation);
 
         // transformation = rel_tf;
     }
+
+    left_keypts.publish(*keypoints_xyzrgb_src);
+    right_keypts.publish(*keypoints_xyzrgb_tgt);
     done+=1;
 
 
 
+    // std::cout<<"TF obtained: \n"<<transformation<<'\n';
+    // DEFINING MY OWN Tranformation Matrix:
+    
+    // transformation(0,0)=0.78707972;
+    // transformation(0,1)=-0.30138103;
+    // transformation(0,2)=0.53821463;
+    // transformation(0,3)=-0.5321334;
+    
+    // transformation(1,0)=0.31636445;
+    // transformation(1,1)=0.94625315;
+    // transformation(1,2)=0.06721984;
+    // transformation(1,3)=-0.12747919 ;
+    
+    // transformation(2,0)=-0.52954608;
+    // transformation(2,1)=0.1173646 ;
+    // transformation(2,2)=0.84012291;
+    // transformation(2,3)=0.43884472;
+    
+    // transformation(3,0)=0;
+    // transformation(3,1)=0;
+    // transformation(3,2)=0;
+    // transformation(3,3)=1;
+
     std::cout<<"TF obtained: \n"<<transformation<<'\n';
-                                                // DEFINING MY OWN Tranformation Matrix:
-                                                // transformation(0,3)=2.5;
+    
 
                                                 // icp.transformCloud(*msg_left,*pointcloud,transformation);
     
     // Transform using the obatined rigid transformation matrix
-    pcl::transformPointCloud(*msg_left, *pointcloud, transformation);
+    pcl::transformPointCloud(*left, *pointcloud, transformation);
 
-    (*pointcloud)=(*pointcloud)+(*msg_right);
+    (*pointcloud)=(*pointcloud)+(*right);
 
 
     // Publish processed point cloud
@@ -668,6 +762,8 @@ int main(int argc, char* argv[])
     ros::NodeHandle nh("~");
     // ros::Subscriber sub = nh.subscribe<PointCloud>("/cloud_pcl_left", 1, callback);
     pcl_output = nh.advertise<pcl::PointCloud<pcl::PointXYZRGB> >("/processed_pcl", 10);
+    left_keypts = nh.advertise<pcl::PointCloud<pcl::PointXYZRGB> >("/left_keypts", 10);
+    right_keypts = nh.advertise<pcl::PointCloud<pcl::PointXYZRGB> >("/right_keypts", 10);
     
 
     message_filters::Subscriber<PointCloud> sub_left_pcl(nh,"/cloud_pcl_left",10);
