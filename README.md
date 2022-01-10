@@ -1,4 +1,4 @@
-# RGB + Depth ROS package (Dual Hikvision and Basler Setup)
+# RGB + Depth ROS package (Dual Hikvision and Basler Setup in Gazebo Simulator)
 ## In Progress
 
 Steps to make it work
