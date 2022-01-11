@@ -277,6 +277,12 @@ typedef pcl::PointCloud<pcl::Normal> PointCloud_norm;
 using namespace message_filters;
 
 PointCloud::Ptr pointcloud(new PointCloud);
+PointCloud::Ptr pointcloud_left(new PointCloud);
+PointCloud::Ptr pointcloud_right(new PointCloud);
+
+PointCloud::Ptr pointcloud_pub(new PointCloud);
+PointCloud::Ptr pointcloud_pub_1(new PointCloud);
+
 PointCloud::Ptr test_pcl(new PointCloud);
 PointCloud::Ptr pcl_tr(new PointCloud);
 
@@ -285,6 +291,11 @@ ros::Publisher  left_keypts;
 ros::Publisher  right_keypts;
 int done =0;
 Eigen::Matrix4f transformation = Eigen::Matrix4f::Identity();
+Eigen::Matrix4f trans_left_2_right = Eigen::Matrix4f::Identity();
+Eigen::Matrix4f trans_right_world = Eigen::Matrix4f::Identity();
+Eigen::Matrix4f trans_left_world = Eigen::Matrix4f::Identity();
+
+
 Eigen::Matrix4d rel_tf = Eigen::Matrix4d::Identity();
 // ================================================================
 
@@ -369,17 +380,7 @@ estimateNormals (const PointCloud::Ptr &src,
   normal_est.compute (normals_src);
 
   normal_est.setInputCloud (tgt);
-  normal_est.compute (normals_tgt);
-
-//   // For debugging purposes only: uncomment the lines below and use pcl_viewer to view the results, i.e.:
-//   // pcl_viewer normals_src.pcd
-//   PointCloud<PointNormal> s, t;
-//   copyPointCloud (*src, s);
-//   copyPointCloud (normals_src, s);
-//   copyPointCloud (*tgt, t);
-//   copyPointCloud (normals_tgt, t);
-//   savePCDFileBinary ("normals_src.pcd", s);
-//   savePCDFileBinary ("normals_tgt.pcd", t);
+// =============================================================
 }
 
 // ================================================================
@@ -398,8 +399,7 @@ estimateNormals (const PointCloud::Ptr &src,
 //   fpfh_est.setInputCloud (keypoints_src);
 //   fpfh_est.setInputNormals (normals_src);
 //   fpfh_est.setRadiusSearch (0.1); // 1m
-//   fpfh_est.setSearchSurface (src);
-//   fpfh_est.compute (fpfhs_src);
+//   fpfh_est.setSearchSurface (src);right
 
 //   fpfh_est.setInputCloud (keypoints_tgt);
 //   fpfh_est.setInputNormals (normals_tgt);
@@ -538,7 +538,7 @@ rejectBadCorrespondences (const pcl::CorrespondencesPtr &all_correspondences,
 //                     Eigen::Matrix4d &transform)
 // {
 //   pcl::registration::TransformationEstimationPointToPlaneLLS<pcl::PointXYZRGB, pcl::PointXYZRGB, double> trans_est;
-//   trans_est.estimateRigidTransformation (*src, *tgt, *correspondences, transform);
+//   trans_est.estimateRigidTransformation (*src, *tgt, *correspondences, ttrans_left_2_rightansform);
 // }
 
 // ==================================================================
@@ -648,7 +648,7 @@ void callback(const PointCloud::ConstPtr& left, const PointCloud::ConstPtr& righ
     // pcl::PointCloud<pcl::PointXYZRGB>::Ptr keypoints_xyzrgb_tgt(new pcl::PointCloud<pcl::PointXYZRGB>);
     keypoints_xyzrgb_tgt->header.frame_id = "map";
 
-    if (done <1)
+    if (false)
     { 
 
         pcl::VoxelGrid<pcl::PointXYZRGB> sor ;
@@ -709,8 +709,8 @@ void callback(const PointCloud::ConstPtr& left, const PointCloud::ConstPtr& righ
         // transformation = rel_tf;
     }
 
-    left_keypts.publish(*keypoints_xyzrgb_src);
-    right_keypts.publish(*keypoints_xyzrgb_tgt);
+    // left_keypts.publish(*keypoints_xyzrgb_src);
+    // right_keypts.publish(*keypoints_xyzrgb_tgt);
     done+=1;
 
 
@@ -718,39 +718,100 @@ void callback(const PointCloud::ConstPtr& left, const PointCloud::ConstPtr& righ
     // std::cout<<"TF obtained: \n"<<transformation<<'\n';
     // DEFINING MY OWN Tranformation Matrix:
     
-    // transformation(0,0)=0.78707972;
-    // transformation(0,1)=-0.30138103;
-    // transformation(0,2)=0.53821463;
-    // transformation(0,3)=-0.5321334;
+    transformation(0,0)=0;
+    transformation(0,1)=0;
+    transformation(0,2)=1;
+    transformation(0,3)=0;      //-0.2;
     
-    // transformation(1,0)=0.31636445;
-    // transformation(1,1)=0.94625315;
-    // transformation(1,2)=0.06721984;
-    // transformation(1,3)=-0.12747919 ;
+    transformation(1,0)=-1;
+    transformation(1,1)=0;
+    transformation(1,2)=0;
+    transformation(1,3)=0 ;
     
-    // transformation(2,0)=-0.52954608;
-    // transformation(2,1)=0.1173646 ;
-    // transformation(2,2)=0.84012291;
-    // transformation(2,3)=0.43884472;
+    transformation(2,0)=0;
+    transformation(2,1)=-1;
+    transformation(2,2)=0;
+    transformation(2,3)=0;
     
-    // transformation(3,0)=0;
-    // transformation(3,1)=0;
-    // transformation(3,2)=0;
-    // transformation(3,3)=1;
+    transformation(3,0)=0;
+    transformation(3,1)=0;
+    transformation(3,2)=0;
+    transformation(3,3)=1;
 
-    std::cout<<"TF obtained: \n"<<transformation<<'\n';
+  // TF to convert from Left camera to World Coord frame
+    trans_left_world(0,0)=0.877;
+    trans_left_world(0,1)=0.479;
+    trans_left_world(0,2)=0;
+    trans_left_world(0,3)=0;      //-0.2;
     
+    trans_left_world(1,0)=-0.479;
+    trans_left_world(1,1)=0.877;
+    trans_left_world(1,2)=0;
+    trans_left_world(1,3)=2 ;
+    
+    trans_left_world(2,0)=0;
+    trans_left_world(2,1)=0;
+    trans_left_world(2,2)=1;
+    trans_left_world(2,3)=0.2;
+    
+    trans_left_world(3,0)=0;
+    trans_left_world(3,1)=0;
+    trans_left_world(3,2)=0;
+    trans_left_world(3,3)=1;
+
+  // TF to convert from Right camera to World Coord frame
+    trans_right_world(0,0)=0.877;
+    trans_right_world(0,1)=-0.479;
+    trans_right_world(0,2)=0;
+    trans_right_world(0,3)=0;      //-0.2;
+    
+    trans_right_world(1,0)=0.479;
+    trans_right_world(1,1)=0.877;
+    trans_right_world(1,2)=0;
+    trans_right_world(1,3)=0 ;
+    
+    trans_right_world(2,0)=0;
+    trans_right_world(2,1)=0;
+    trans_right_world(2,2)=1;
+    trans_right_world(2,3)=0.2;
+    
+    trans_right_world(3,0)=0;
+    trans_right_world(3,1)=0;
+    trans_right_world(3,2)=0;
+    trans_right_world(3,3)=1;
 
                                                 // icp.transformCloud(*msg_left,*pointcloud,transformation);
     
-    // Transform using the obatined rigid transformation matrix
-    pcl::transformPointCloud(*left, *pointcloud, transformation);
+    pointcloud_left = PointCloud::Ptr(new PointCloud(msg_left->width, msg_left->height));
+                                                        pointcloud_left->header.frame_id = "map";
 
-    (*pointcloud)=(*pointcloud)+(*right);
+    pointcloud_right = PointCloud::Ptr(new PointCloud(msg_left->width, msg_left->height));
+                                                        pointcloud_left->header.frame_id = "map";
+
+    pointcloud_pub = PointCloud::Ptr(new PointCloud(msg_left->width, msg_left->height));
+                                                        pointcloud_pub->header.frame_id = "map";
+
+    pointcloud_pub_1 = PointCloud::Ptr(new PointCloud(msg_left->width, msg_left->height));
+                                                        pointcloud_pub_1->header.frame_id = "map";
+
+    pcl::transformPointCloud(*left, *pointcloud_left, transformation);
+    pcl::transformPointCloud(*right, *pointcloud_right, transformation);
+
+    left_keypts.publish(*pointcloud_left);
+    right_keypts.publish(*pointcloud_right);
+
+    // Transform using the obatined rigid transformation matrix
+    pcl::transformPointCloud(*pointcloud_left, *pointcloud_pub, trans_left_world);
+    pcl::transformPointCloud(*pointcloud_right, *pointcloud_pub_1, trans_right_world);
+
+    // left_keypts.publish(*pointcloud_pub);
+    // right_keypts.publish(*pointcloud_pub_1);
+
+    (*pointcloud_pub)=(*pointcloud_pub)+(*pointcloud_pub_1);
 
 
     // Publish processed point cloud
-    pcl_output.publish(pointcloud);
+    pcl_output.publish(pointcloud_pub);
     printf("aligned \n");
 
 }
@@ -766,10 +827,13 @@ int main(int argc, char* argv[])
     right_keypts = nh.advertise<pcl::PointCloud<pcl::PointXYZRGB> >("/right_keypts", 10);
     
 
-    message_filters::Subscriber<PointCloud> sub_left_pcl(nh,"/cloud_pcl_left",10);
-    message_filters::Subscriber<PointCloud> sub_right_pcl(nh,"/cloud_pcl_right",10);
+    // message_filters::Subscriber<PointCloud> sub_left_pcl(nh,"/cloud_pcl_left",10);
+    // message_filters::Subscriber<PointCloud> sub_right_pcl(nh,"/cloud_pcl_right",10);
 
-    TimeSynchronizer<PointCloud, PointCloud> sync(sub_left_pcl, sub_right_pcl,10);
+    message_filters::Subscriber<PointCloud> sub_left_pcl(nh,"/camera_left/depth/points",1);
+    message_filters::Subscriber<PointCloud> sub_right_pcl(nh,"/camera/depth/points",1);
+
+    TimeSynchronizer<PointCloud, PointCloud> sync(sub_left_pcl, sub_right_pcl,1);
     sync.registerCallback(boost::bind(&callback, _1, _2));
 
 
