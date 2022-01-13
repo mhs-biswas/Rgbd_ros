@@ -25,6 +25,7 @@
 // #include <icp.h>
 #include <pcl-1.10/pcl/registration/icp_nl.h>
 #include <pcl-1.10/pcl/registration/gicp.h>
+#include <pcl-1.10/pcl/registration/icp.h>
 #include <iostream>
 #include <string>
 #include<pcl-1.10/pcl/io/ply_io.h>
@@ -328,7 +329,7 @@ estimateKeypoints (const PointCloud::ConstPtr &src,
 const float min_scale = 0.01f; // the standard deviation of the smallest scale in the scale space
 const int n_octaves = 3;  // the number of octaves (i.e. doublings of scale) to compute
 const int n_scales_per_octave = 4; // the number of scales to compute within each octave
-const float min_contrast = 0.0001f; // the minimum contrast required for detection
+const float min_contrast = 0.01f; // the minimum contrast required for detection
 
 void
 estimate_SIFT_Keypoints (const PointCloud::Ptr &src, 
@@ -377,7 +378,7 @@ estimateNormals (const PointCloud::Ptr &src,
   pcl::NormalEstimation<pcl::PointXYZRGB, pcl::Normal> normal_est;
   normal_est.setSearchMethod(pcl::search::KdTree<pcl::PointXYZRGB>::Ptr(new pcl::search::KdTree<pcl::PointXYZRGB>));
   normal_est.setInputCloud (src);
-  normal_est.setRadiusSearch (0.25);  // 50cm
+  normal_est.setRadiusSearch (0.5);  // 50cm
   normal_est.compute (normals_src);
 
   normal_est.setInputCloud (tgt);
@@ -440,7 +441,7 @@ estimate_SIFT_FPFH (const PointCloud::Ptr &src,
 
   fpfh_est.setInputCloud (keypoints_xyzrgb_src);
   fpfh_est.setInputNormals (normals_src);
-  fpfh_est.setRadiusSearch (0.25); // 1m
+  fpfh_est.setRadiusSearch (1); // 1m
   fpfh_est.setSearchSurface (src);
   fpfh_est.compute (fpfhs_src);
 
@@ -649,70 +650,6 @@ void callback(const PointCloud::ConstPtr& left, const PointCloud::ConstPtr& righ
     // pcl::PointCloud<pcl::PointXYZRGB>::Ptr keypoints_xyzrgb_tgt(new pcl::PointCloud<pcl::PointXYZRGB>);
     keypoints_xyzrgb_tgt->header.frame_id = "map";
 
-    if (false)
-    { 
-
-        pcl::VoxelGrid<pcl::PointXYZRGB> sor ;
-        sor.setInputCloud(msg_left);
-        // sor.setMeanK(50);
-        // sor.setStddevMulThresh(1);
-        sor.setLeafSize(0.01,0.01,0.01);
-        sor.filter(*msg_left) ;
-
-        // pcl::StatisticalOutlierRemoval<pcl::PointXYZRGB> sor ;
-        sor.setInputCloud(msg_right);
-        sor.setLeafSize(0.01,0.01,0.01);
-        // sor.setMeanK(50);
-        // sor.setStddevMulThresh(1);
-        sor.filter(*msg_right) ;
-        
-        PointCloud_norm::Ptr normals_src (new PointCloud_norm), 
-                          normals_tgt (new PointCloud_norm);
-        estimateNormals (msg_left, msg_right, *normals_src, *normals_tgt);
-
-        // PointCloud::Ptr keypoints_src (new PointCloud), keypoints_tgt (new PointCloud);
-        
-        // estimateKeypoints (msg_left, msg_right, *keypoints_src, *keypoints_tgt);
-
-        pcl::PointCloud<pcl::PointWithScale>::Ptr keypoints_tgt(new pcl::PointCloud<pcl::PointWithScale>),
-                                                  keypoints_src(new pcl::PointCloud<pcl::PointWithScale>);
-
-        estimate_SIFT_Keypoints(msg_left, msg_right, keypoints_src, keypoints_tgt);
-
-        pcl::PointCloud<pcl::PFHRGBSignature250>::Ptr fpfhs_src (new pcl::PointCloud<pcl::PFHRGBSignature250>), 
-                                   fpfhs_tgt (new pcl::PointCloud<pcl::PFHRGBSignature250>);
-        // estimateFPFH (msg_left, msg_right, normals_src, normals_tgt, keypoints_src, keypoints_tgt, *fpfhs_src, *fpfhs_tgt);
-        
-        estimate_SIFT_FPFH(msg_left,msg_right,normals_src, normals_tgt, keypoints_src, keypoints_tgt, *fpfhs_src, *fpfhs_tgt);
-
-        pcl::CorrespondencesPtr all_correspondences (new pcl::Correspondences), 
-                     good_correspondences (new pcl::Correspondences);
-
-        // rejectBadCorrespondences (all_correspondences, keypoints_src, keypoints_tgt, *good_correspondences);
-        findCorrespondences (fpfhs_src, fpfhs_tgt, *all_correspondences);
-        rejectBadCorrespondences (all_correspondences, keypoints_src, keypoints_tgt, *good_correspondences);
-
-        // for (const auto& corr : (*good_correspondences))
-        // std::cerr << corr << std::endl;
-
-        
-        pcl::copyPointCloud(*keypoints_src , *keypoints_xyzrgb_src);
-
-        
-        pcl::copyPointCloud(*keypoints_tgt , *keypoints_xyzrgb_tgt);
-
-        
-        pcl::registration::TransformationEstimationSVD<pcl::PointXYZRGB, pcl::PointXYZRGB> trans_est;
-        
-
-        trans_est.estimateRigidTransformation (*keypoints_xyzrgb_src, *keypoints_xyzrgb_tgt, *good_correspondences, transformation);
-
-        // transformation = rel_tf;
-    }
-
-    // left_keypts.publish(*keypoints_xyzrgb_src);
-    // right_keypts.publish(*keypoints_xyzrgb_tgt);
-    done+=1;
 
 
 
@@ -806,7 +743,102 @@ void callback(const PointCloud::ConstPtr& left, const PointCloud::ConstPtr& righ
     pcl::transformPointCloud(*right, *pointcloud_right, transformation);
 
 
-    left_2_right_frame(0,0)=0.5403;
+
+    if (false) // SIFT
+    { 
+
+        pcl::VoxelGrid<pcl::PointXYZRGB> sor ;
+        sor.setInputCloud(pointcloud_left);
+        // sor.setMeanK(50);
+        // sor.setStddevMulThresh(1);
+        sor.setLeafSize(0.1,0.1,0.1);
+        sor.filter(*pointcloud_left) ;
+
+        // pcl::StatisticalOutlierRemoval<pcl::PointXYZRGB> sor ;
+        sor.setInputCloud(pointcloud_right);
+        sor.setLeafSize(0.1,0.1,0.1);
+        // sor.setMeanK(50);
+        // sor.setStddevMulThresh(1);
+        sor.filter(*pointcloud_right) ;
+        
+        PointCloud_norm::Ptr normals_src (new PointCloud_norm), 
+                          normals_tgt (new PointCloud_norm);
+        estimateNormals (pointcloud_left, pointcloud_right, *normals_src, *normals_tgt);
+
+        // PointCloud::Ptr keypoints_src (new PointCloud), keypoints_tgt (new PointCloud);
+        
+        // estimateKeypoints (msg_left, msg_right, *keypoints_src, *keypoints_tgt);
+
+        pcl::PointCloud<pcl::PointWithScale>::Ptr keypoints_tgt(new pcl::PointCloud<pcl::PointWithScale>),
+                                                  keypoints_src(new pcl::PointCloud<pcl::PointWithScale>);
+
+        estimate_SIFT_Keypoints(pointcloud_left, pointcloud_right, keypoints_src, keypoints_tgt);
+
+        pcl::PointCloud<pcl::PFHRGBSignature250>::Ptr fpfhs_src (new pcl::PointCloud<pcl::PFHRGBSignature250>), 
+                                   fpfhs_tgt (new pcl::PointCloud<pcl::PFHRGBSignature250>);
+        // estimateFPFH (msg_left, msg_right, normals_src, normals_tgt, keypoints_src, keypoints_tgt, *fpfhs_src, *fpfhs_tgt);
+        
+        estimate_SIFT_FPFH(pointcloud_left,pointcloud_right,normals_src, normals_tgt, keypoints_src, keypoints_tgt, *fpfhs_src, *fpfhs_tgt);
+
+        pcl::CorrespondencesPtr all_correspondences (new pcl::Correspondences), 
+                     good_correspondences (new pcl::Correspondences);
+
+        // rejectBadCorrespondences (all_correspondences, keypoints_src, keypoints_tgt, *good_correspondences);
+        findCorrespondences (fpfhs_src, fpfhs_tgt, *all_correspondences);
+        rejectBadCorrespondences (all_correspondences, keypoints_src, keypoints_tgt, *good_correspondences);
+
+        // for (const auto& corr : (*good_correspondences))
+        // std::cerr << corr << std::endl;
+
+        
+        pcl::copyPointCloud(*keypoints_src , *keypoints_xyzrgb_src);
+
+        
+        pcl::copyPointCloud(*keypoints_tgt , *keypoints_xyzrgb_tgt);
+
+        
+        pcl::registration::TransformationEstimationSVD<pcl::PointXYZRGB, pcl::PointXYZRGB> trans_est;
+        
+
+        trans_est.estimateRigidTransformation (*keypoints_xyzrgb_src, *keypoints_xyzrgb_tgt, *good_correspondences, left_2_right_frame);
+
+        // transformation = rel_tf;
+    }
+
+    if (false) // ICP
+    {std::cout<<"in ICP \n";
+
+    pcl::VoxelGrid<pcl::PointXYZRGB> sor ;
+    sor.setInputCloud(pointcloud_left);
+    // sor.setMeanK(50);
+    // sor.setStddevMulThresh(1);
+    sor.setLeafSize(0.1,0.1,0.1);
+    sor.filter(*pointcloud_left) ;
+
+    // pcl::StatisticalOutlierRemoval<pcl::PointXYZRGB> sor ;
+    sor.setInputCloud(pointcloud_right);
+    sor.setLeafSize(0.1,0.1,0.1);
+    // sor.setMeanK(50);
+    // sor.setStddevMulThresh(1);
+    sor.filter(*pointcloud_right) ;
+
+    pcl::IterativeClosestPoint<pcl::PointXYZRGB, pcl::PointXYZRGB> icp;
+    icp.setMaximumIterations (10);
+    icp.setInputSource (pointcloud_left);
+    icp.setInputTarget (pointcloud_right);
+    icp.align (*pointcloud_left);
+    left_2_right_frame = icp.getFinalTransformation ().cast<float>();  
+    }
+
+
+    left_keypts.publish(*keypoints_xyzrgb_src);
+    right_keypts.publish(*keypoints_xyzrgb_tgt);
+    
+    done+=1;
+
+
+    if (true) // Original Relative Transfomation
+    {left_2_right_frame(0,0)=0.5403;
     left_2_right_frame(0,1)=0.8415;
     left_2_right_frame(0,2)=0;
     left_2_right_frame(0,3)=0.9594;      //-0.2;
@@ -824,10 +856,11 @@ void callback(const PointCloud::ConstPtr& left, const PointCloud::ConstPtr& righ
     left_2_right_frame(3,0)=0;
     left_2_right_frame(3,1)=0;
     left_2_right_frame(3,2)=0;
-    left_2_right_frame(3,3)=1;
+    left_2_right_frame(3,3)=1;}
 
-    left_keypts.publish(*pointcloud_left);
-    right_keypts.publish(*pointcloud_right);
+    std::cout<<"Estimated Transfomation:  \n"<<left_2_right_frame<<'\n';
+    // left_keypts.publish(*pointcloud_left);
+    // right_keypts.publish(*pointcloud_right);
 
     // Transform using the obatined rigid transformation matrix
     pcl::transformPointCloud(*pointcloud_left, *pointcloud_pub, left_2_right_frame);
