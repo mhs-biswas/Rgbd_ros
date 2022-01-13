@@ -294,6 +294,7 @@ Eigen::Matrix4f transformation = Eigen::Matrix4f::Identity();
 Eigen::Matrix4f trans_left_2_right = Eigen::Matrix4f::Identity();
 Eigen::Matrix4f trans_right_world = Eigen::Matrix4f::Identity();
 Eigen::Matrix4f trans_left_world = Eigen::Matrix4f::Identity();
+Eigen::Matrix4f left_2_right_frame = Eigen::Matrix4f::Identity();
 
 
 Eigen::Matrix4d rel_tf = Eigen::Matrix4d::Identity();
@@ -719,67 +720,73 @@ void callback(const PointCloud::ConstPtr& left, const PointCloud::ConstPtr& righ
     // DEFINING MY OWN Tranformation Matrix:
 
   // TF to convert from camera optical frame to camera frame
-    transformation(0,0)=0;
-    transformation(0,1)=0;
-    transformation(0,2)=1;
-    transformation(0,3)=0;      //-0.2;
+              transformation(0,0)=0;
+              transformation(0,1)=0;
+              transformation(0,2)=1;
+              transformation(0,3)=0;      //-0.2;
+              
+              transformation(1,0)=-1;
+              transformation(1,1)=0;
+              transformation(1,2)=0;
+              transformation(1,3)=0 ;
+              
+              transformation(2,0)=0;
+              transformation(2,1)=-1;
+              transformation(2,2)=0;
+              transformation(2,3)=0;
+              
+              transformation(3,0)=0;
+              transformation(3,1)=0;
+              transformation(3,2)=0;
+              transformation(3,3)=1;
+
     
-    transformation(1,0)=-1;
-    transformation(1,1)=0;
-    transformation(1,2)=0;
-    transformation(1,3)=0 ;
-    
-    transformation(2,0)=0;
-    transformation(2,1)=-1;
-    transformation(2,2)=0;
-    transformation(2,3)=0;
-    
-    transformation(3,0)=0;
-    transformation(3,1)=0;
-    transformation(3,2)=0;
-    transformation(3,3)=1;
+
 
   // TF to convert from Left camera to World Coord frame
-    trans_left_world(0,0)=0.877;
-    trans_left_world(0,1)=0.479;
-    trans_left_world(0,2)=0;
-    trans_left_world(0,3)=0;      //-0.2;
+    // trans_left_world(0,0)=0.877;
+    // trans_left_world(0,1)=0.479;
+    // trans_left_world(0,2)=0;
+    // trans_left_world(0,3)=0;      //-0.2;
     
-    trans_left_world(1,0)=-0.479;
-    trans_left_world(1,1)=0.877;
-    trans_left_world(1,2)=0;
-    trans_left_world(1,3)=2 ;
+    // trans_left_world(1,0)=-0.479;
+    // trans_left_world(1,1)=0.877;
+    // trans_left_world(1,2)=0;
+    // trans_left_world(1,3)=2 ;
     
-    trans_left_world(2,0)=0;
-    trans_left_world(2,1)=0;
-    trans_left_world(2,2)=1;
-    trans_left_world(2,3)=0.2;
+    // trans_left_world(2,0)=0;
+    // trans_left_world(2,1)=0;
+    // trans_left_world(2,2)=1;
+    // trans_left_world(2,3)=0.2;
     
-    trans_left_world(3,0)=0;
-    trans_left_world(3,1)=0;
-    trans_left_world(3,2)=0;
-    trans_left_world(3,3)=1;
+    // trans_left_world(3,0)=0;
+    // trans_left_world(3,1)=0;
+    // trans_left_world(3,2)=0;
+    // trans_left_world(3,3)=1;
 
-  // TF to convert from Right camera to World Coord frame
-    trans_right_world(0,0)=0.877;
-    trans_right_world(0,1)=-0.479;
-    trans_right_world(0,2)=0;
-    trans_right_world(0,3)=0;      //-0.2;
+  // TF to convert from Right camera to World Coord frame 
+   /*
+       Uncomment and introduce the lines below to find the Position of points in the World Coord frame.
+   */
+    // trans_right_world(0,0)=0.877;
+    // trans_right_world(0,1)=-0.479;
+    // trans_right_world(0,2)=0;
+    // trans_right_world(0,3)=0;      //-0.2;
     
-    trans_right_world(1,0)=0.479;
-    trans_right_world(1,1)=0.877;
-    trans_right_world(1,2)=0;
-    trans_right_world(1,3)=0 ;
+    // trans_right_world(1,0)=0.479;
+    // trans_right_world(1,1)=0.877;
+    // trans_right_world(1,2)=0;
+    // trans_right_world(1,3)=0 ;
     
-    trans_right_world(2,0)=0;
-    trans_right_world(2,1)=0;
-    trans_right_world(2,2)=1;
-    trans_right_world(2,3)=0.2;
+    // trans_right_world(2,0)=0;
+    // trans_right_world(2,1)=0;
+    // trans_right_world(2,2)=1;
+    // trans_right_world(2,3)=0.2;
     
-    trans_right_world(3,0)=0;
-    trans_right_world(3,1)=0;
-    trans_right_world(3,2)=0;
-    trans_right_world(3,3)=1;
+    // trans_right_world(3,0)=0;
+    // trans_right_world(3,1)=0;
+    // trans_right_world(3,2)=0;
+    // trans_right_world(3,3)=1;
 
                                                 // icp.transformCloud(*msg_left,*pointcloud,transformation);
     
@@ -798,18 +805,40 @@ void callback(const PointCloud::ConstPtr& left, const PointCloud::ConstPtr& righ
     pcl::transformPointCloud(*left, *pointcloud_left, transformation);
     pcl::transformPointCloud(*right, *pointcloud_right, transformation);
 
+
+    left_2_right_frame(0,0)=0.5403;
+    left_2_right_frame(0,1)=0.8415;
+    left_2_right_frame(0,2)=0;
+    left_2_right_frame(0,3)=0.9594;      //-0.2;
+    
+    left_2_right_frame(1,0)=-0.8415;
+    left_2_right_frame(1,1)=0.5403;
+    left_2_right_frame(1,2)=0;
+    left_2_right_frame(1,3)=1.7565 ;
+    
+    left_2_right_frame(2,0)=0;
+    left_2_right_frame(2,1)=0;
+    left_2_right_frame(2,2)=1;
+    left_2_right_frame(2,3)=0;
+    
+    left_2_right_frame(3,0)=0;
+    left_2_right_frame(3,1)=0;
+    left_2_right_frame(3,2)=0;
+    left_2_right_frame(3,3)=1;
+
     left_keypts.publish(*pointcloud_left);
     right_keypts.publish(*pointcloud_right);
 
     // Transform using the obatined rigid transformation matrix
-    pcl::transformPointCloud(*pointcloud_left, *pointcloud_pub, trans_left_world);
-    pcl::transformPointCloud(*pointcloud_right, *pointcloud_pub_1, trans_right_world);
+    pcl::transformPointCloud(*pointcloud_left, *pointcloud_pub, left_2_right_frame);
+    // pcl::transformPointCloud(*pointcloud_right, *pointcloud_pub_1, trans_right_world);
 
     // left_keypts.publish(*pointcloud_pub);
     // right_keypts.publish(*pointcloud_pub_1);
 
-    (*pointcloud_pub)=(*pointcloud_pub)+(*pointcloud_pub_1);
+    (*pointcloud_pub)=(*pointcloud_pub)+(*pointcloud_right);
 
+    // (*msg_right)=(*pointcloud_left)+(*msg_right);
 
     // Publish processed point cloud
     pcl_output.publish(pointcloud_pub);
