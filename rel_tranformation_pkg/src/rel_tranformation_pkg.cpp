@@ -717,7 +717,8 @@ void callback(const PointCloud::ConstPtr& left, const PointCloud::ConstPtr& righ
 
     // std::cout<<"TF obtained: \n"<<transformation<<'\n';
     // DEFINING MY OWN Tranformation Matrix:
-    
+
+  // TF to convert from camera optical frame to camera frame
     transformation(0,0)=0;
     transformation(0,1)=0;
     transformation(0,2)=1;
