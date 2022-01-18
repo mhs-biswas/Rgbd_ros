@@ -838,25 +838,50 @@ void callback(const PointCloud::ConstPtr& left, const PointCloud::ConstPtr& righ
 
 
     if (true) // Original Relative Transfomation
-    {left_2_right_frame(0,0)=0.5403;
-    left_2_right_frame(0,1)=0.8415;
-    left_2_right_frame(0,2)=0;
-    left_2_right_frame(0,3)=0.9594;      //-0.2;
+    {left_2_right_frame(0,0)=-0.5403;
+    left_2_right_frame(0,1)=0;
+    left_2_right_frame(0,2)=-0.8415;
+    left_2_right_frame(0,3)=2.6327;      //-0.2;
     
-    left_2_right_frame(1,0)=-0.8415;
-    left_2_right_frame(1,1)=0.5403;
+    left_2_right_frame(1,0)=0;
+    left_2_right_frame(1,1)=-1;
     left_2_right_frame(1,2)=0;
-    left_2_right_frame(1,3)=1.7565 ;
+    left_2_right_frame(1,3)=0 ;
     
-    left_2_right_frame(2,0)=0;
+    left_2_right_frame(2,0)=-0.8415;
     left_2_right_frame(2,1)=0;
-    left_2_right_frame(2,2)=1;
-    left_2_right_frame(2,3)=0;
+    left_2_right_frame(2,2)=0.5403;
+    left_2_right_frame(2,3)=1.4383;
     
     left_2_right_frame(3,0)=0;
     left_2_right_frame(3,1)=0;
     left_2_right_frame(3,2)=0;
-    left_2_right_frame(3,3)=1;}
+    left_2_right_frame(3,3)=1;
+    
+
+    // left_2_right_frame(0,0)=0.5403;
+    // left_2_right_frame(0,1)=0.8415;
+    // left_2_right_frame(0,2)=0;
+    // left_2_right_frame(0,3)=0.9594;      //-0.2;
+    
+    // left_2_right_frame(1,0)=-0.8415;
+    // left_2_right_frame(1,1)=0.5403;
+    // left_2_right_frame(1,2)=0;
+    // left_2_right_frame(1,3)=1.7565 ;
+    
+    // left_2_right_frame(2,0)=0;
+    // left_2_right_frame(2,1)=0;
+    // left_2_right_frame(2,2)=1;
+    // left_2_right_frame(2,3)=0;
+    
+    // left_2_right_frame(3,0)=0;
+    // left_2_right_frame(3,1)=0;
+    // left_2_right_frame(3,2)=0;
+    // left_2_right_frame(3,3)=1;
+    
+    
+    
+    }
 
     std::cout<<"Estimated Transfomation:  \n"<<left_2_right_frame<<'\n';
     // left_keypts.publish(*pointcloud_left);
@@ -871,10 +896,32 @@ void callback(const PointCloud::ConstPtr& left, const PointCloud::ConstPtr& righ
 
     (*pointcloud_pub)=(*pointcloud_pub)+(*pointcloud_right);
 
+    trans_right_world(0,0)=0.8776;
+    trans_right_world(0,1)=0;
+    trans_right_world(0,2)=0.4794;
+    trans_right_world(0,3)=0;      //-0.2;
+    
+    trans_right_world(1,0)=0;
+    trans_right_world(1,1)=1;
+    trans_right_world(1,2)=0;
+    trans_right_world(1,3)=0 ;
+    
+    trans_right_world(2,0)=-0.4794;
+    trans_right_world(2,1)=0;
+    trans_right_world(2,2)=0.8776;
+    trans_right_world(2,3)=0.8;
+    
+    trans_right_world(3,0)=0;
+    trans_right_world(3,1)=0;
+    trans_right_world(3,2)=0;
+    trans_right_world(3,3)=1;
+
+    pcl::transformPointCloud(*pointcloud_pub, *pointcloud_pub_1,trans_right_world);
+
     // (*msg_right)=(*pointcloud_left)+(*msg_right);
 
     // Publish processed point cloud
-    pcl_output.publish(pointcloud_pub);
+    pcl_output.publish(pointcloud_pub_1);
     printf("aligned \n");
 
 }
