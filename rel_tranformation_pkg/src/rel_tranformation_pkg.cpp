@@ -919,6 +919,16 @@ void callback(const PointCloud::ConstPtr& left, const PointCloud::ConstPtr& righ
     pcl::transformPointCloud(*pointcloud_pub, *pointcloud_pub_1,trans_right_world);
 
     // (*msg_right)=(*pointcloud_left)+(*msg_right);
+    
+    // Voxelize the Pointcloud
+    
+    pcl::VoxelGrid<pcl::PointXYZRGB> sor ;
+    sor.setInputCloud(pointcloud_pub_1);
+    // sor.setMeanK(50);
+    // sor.setStddevMulThresh(1);
+    sor.setLeafSize(0.01,0.01,0.001);
+    sor.filter(*pointcloud_pub_1) ;
+
 
     // Publish processed point cloud
     pcl_output.publish(pointcloud_pub_1);
