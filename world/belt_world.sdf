@@ -244,18 +244,18 @@
       </link>
     </model>
     <state world_name='default'>
-      <sim_time>9068 857000000</sim_time>
-      <real_time>2508 507482829</real_time>
-      <wall_time>1642526963 500434726</wall_time>
-      <iterations>2502433</iterations>
+      <sim_time>9170 804000000</sim_time>
+      <real_time>2610 783776614</real_time>
+      <wall_time>1642527087 58385859</wall_time>
+      <iterations>2604380</iterations>
       <model name='conveyor_belt'>
-        <pose>1.4659 -0 0 0 -0 0</pose>
+        <pose>1.4659 0 0 0 -0 0</pose>
         <scale>1 1 1</scale>
         <link name='base_link'>
-          <pose>1.4659 -0 0 0 -0 0</pose>
-          <velocity>-0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 4.6e-05 0.000108 0.000178 0</acceleration>
-          <wrench>0 0 4.6e-05 0 -0 0</wrench>
+          <pose>1.4659 0 0 0 -0 0</pose>
+          <velocity>-0 0 0 1e-06 -0 0</velocity>
+          <acceleration>-0 -0 0.000468 0.000793 -0.000698 0</acceleration>
+          <wrench>-0 -0 0.000468 0 -0 0</wrench>
         </link>
       </model>
       <model name='ground_plane'>
@@ -289,47 +289,47 @@
         </link>
       </model>
       <model name='pioneer3at_0'>
-        <pose>1.26987 -0.944012 0.170001 -2e-06 2e-06 1.46468</pose>
+        <pose>1.26072 -1.19188 0.170001 -2e-06 5e-06 1.48216</pose>
         <scale>1 1 1</scale>
         <link name='chassis'>
-          <pose>1.26987 -0.944012 0.170001 -2e-06 2e-06 1.46468</pose>
-          <velocity>-0.002303 -0.002566 0.003451 -0.008658 -0.018771 -0.002408</velocity>
-          <acceleration>-3.51205 0.267665 7.32292 -2.29971 1.31628 2.00938</acceleration>
-          <wrench>-49.1687 3.74732 102.521 0 -0 0</wrench>
+          <pose>1.26072 -1.19188 0.170001 -2e-06 5e-06 1.48216</pose>
+          <velocity>0.000879 -0.000248 0.007576 0.005847 0.005902 -0.000591</velocity>
+          <acceleration>1.11225 -0.206606 15.1999 0.195384 -1.43161 2.48673</acceleration>
+          <wrench>15.5716 -2.89248 212.799 0 -0 0</wrench>
         </link>
         <link name='left_front_wheel'>
-          <pose>1.08324 -0.798426 0.110001 1.57071 -1.10777 1.46467</pose>
-          <velocity>-0.000811 -0.002619 -0.001369 0.101791 -0.032014 -0.002524</velocity>
-          <acceleration>-1.07364 -0.399532 -1.80181 2.21913 -0.435665 -2.13289</acceleration>
-          <wrench>-1.61047 -0.599298 -2.70271 0 -0 0</wrench>
+          <pose>1.07157 -1.04958 0.11 -1.57082 -1.35863 -1.6595</pose>
+          <velocity>0.0004 0.000216 0.009698 0.045148 0.003639 -0.000724</velocity>
+          <acceleration>-0.075454 0.005729 19.5057 -0.760036 -0.750549 -1.93002</acceleration>
+          <wrench>-0.113181 0.008594 29.2586 0 -0 0</wrench>
         </link>
         <link name='left_rear_wheel'>
-          <pose>1.05676 -1.04702 0.11 -1.57084 -1.21875 -1.67696</pose>
-          <velocity>-0.001605 -0.002559 0.00056 0.050304 -0.014796 -0.00271</velocity>
-          <acceleration>-1.54527 -0.371694 0.962255 2.44177 -1.30505 0.691273</acceleration>
-          <wrench>-2.31791 -0.557542 1.44338 0 -0 0</wrench>
+          <pose>1.04944 -1.2986 0.11 -1.57072 -1.40925 -1.6596</pose>
+          <velocity>0.000372 0.000236 0.007997 0.052198 0.003423 -0.00073</velocity>
+          <acceleration>0.679109 -0.05033 16.4101 2.04051 1.11191 1.10691</acceleration>
+          <wrench>1.01866 -0.075495 24.6152 0 -0 0</wrench>
         </link>
         <link name='right_front_wheel'>
-          <pose>1.48298 -0.841004 0.11 -1.57083 1.04366 -1.67686</pose>
-          <velocity>-0.001619 -0.003595 0.006571 -0.039784 -0.014699 -0.00271</velocity>
-          <acceleration>-1.62042 -0.861856 13.6859 0.259857 0.556821 -1.98477</acceleration>
-          <wrench>-2.43063 -1.29279 20.5289 0 -0 0</wrench>
+          <pose>1.47199 -1.08516 0.11 1.57076 -1.23338 1.4821</pose>
+          <velocity>0.000716 -1.4e-05 0.006774 -0.062122 0.006482 -0.000689</velocity>
+          <acceleration>-0.037495 1.00609 13.464 0.885381 0.195275 1.4005</acceleration>
+          <wrench>-0.056242 1.50914 20.196 0 -0 0</wrench>
         </link>
         <link name='right_rear_wheel'>
-          <pose>1.4565 -1.0896 0.110002 -1.57086 0.909036 -1.67688</pose>
-          <velocity>-0.001561 -0.003561 0.007967 -0.020945 -0.014235 -0.002541</velocity>
-          <acceleration>-1.30848 -0.854248 16.3618 -1.35672 -0.603804 1.2658</acceleration>
-          <wrench>-1.96271 -1.28137 24.5427 0 -0 0</wrench>
+          <pose>1.44987 -1.33418 0.110003 1.57072 0.221795 1.48217</pose>
+          <velocity>0.000531 1e-05 0.005773 -0.005769 0.004819 -0.000645</velocity>
+          <acceleration>0.615386 0.960801 11.4682 0.769445 -1.09628 -1.84441</acceleration>
+          <wrench>0.923078 1.4412 17.2023 0 -0 0</wrench>
         </link>
       </model>
       <model name='unit_cylinder'>
-        <pose>1.65254 0.315497 0.443814 0 -5e-06 4.4e-05</pose>
+        <pose>1.65255 0.067587 0.44382 -1e-05 -0 4.4e-05</pose>
         <scale>0.50976 0.50976 0.487635</scale>
         <link name='link'>
-          <pose>1.65254 0.315497 0.443814 0 -5e-06 4.4e-05</pose>
-          <velocity>0 0 -0.005379 0 1e-06 0</velocity>
-          <acceleration>0 0 -9.8 0 -0 0</acceleration>
-          <wrench>0 0 -9.8 0 -0 0</wrench>
+          <pose>1.65255 0.067587 0.44382 -1e-05 -0 4.4e-05</pose>
+          <velocity>-0 -0 0.004895 0 -8e-06 0</velocity>
+          <acceleration>-0 -0 4.89492 0.000288 -0.008279 -0</acceleration>
+          <wrench>-0 -0 4.89492 0 -0 0</wrench>
         </link>
       </model>
       <light name='sun'>
@@ -338,7 +338,7 @@
     </state>
     <gui fullscreen='0'>
       <camera name='user_camera'>
-        <pose>9.24053 0.774063 7.69698 0 0.849797 -3.11999</pose>
+        <pose>9.83885 0.983438 7.1673 0 0.849797 -3.11999</pose>
         <view_controller>orbit</view_controller>
         <projection_type>perspective</projection_type>
       </camera>
@@ -748,8 +748,8 @@
         <collision name='collision'>
           <geometry>
             <cylinder>
-              <radius>7.4047</radius>
-              <length>17.6857</length>
+              <radius>28.4954</radius>
+              <length>74.376</length>
             </cylinder>
           </geometry>
           <max_contacts>10</max_contacts>
@@ -769,8 +769,8 @@
         <visual name='visual'>
           <geometry>
             <cylinder>
-              <radius>7.4047</radius>
-              <length>17.6857</length>
+              <radius>28.4954</radius>
+              <length>74.376</length>
             </cylinder>
           </geometry>
           <material>
