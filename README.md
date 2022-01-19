@@ -1,4 +1,4 @@
-# RGB + Depth ROS package (Dual Hikvision and Basler Setup)
+# RGB + Depth ROS package (Dual Hikvision and Basler Setup). Umeyama trial using chessboard
 ## In Progress
 
 Steps to make it work
