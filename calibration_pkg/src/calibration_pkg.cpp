@@ -44,7 +44,7 @@ bool locateChessboardCorners(const cv::Mat image, std::vector<cv::Point2f>& imag
 
     if (found) {
         // Refine the location of the corners
-        cv::cornerSubPix(image, imagePoints, cv::Size(5,5), cv::Size(-1, -1), cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 30, 0.1));
+        cv::cornerSubPix(image, imagePoints, cv::Size(9,6), cv::Size(-1, -1), cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 30, 0.1));
     }
 
     return found;
@@ -219,8 +219,8 @@ int main(int argc, char* argv[])
     // image_transport::Subscriber sub_rgb = it.subscribe("hik_vision/rgb_image", 1, imageCallback_hik);
 
 
-    message_filters::Subscriber<sensor_msgs::Image> sub_blaze(nh,"Blaze/intensity_image",1);
-    message_filters::Subscriber<sensor_msgs::Image> sub_rgb(nh,"hik_vision/rgb_image",1);
+    message_filters::Subscriber<sensor_msgs::Image> sub_blaze(nh,"/Blaze_node_left/Blaze/intensity_image",1);
+    message_filters::Subscriber<sensor_msgs::Image> sub_rgb(nh,"/rgb_camera_node_left/hik_vision/rgb_image",1);
 
     TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(sub_blaze, sub_rgb,10);
     sync.registerCallback(boost::bind(&callback, _1, _2));
