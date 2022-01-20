@@ -282,6 +282,10 @@ ros::Publisher  pcl_output;
 int done =0;
 Eigen::Matrix4f transformation = Eigen::Matrix4f::Identity();
 Eigen::Matrix4d rel_tf = Eigen::Matrix4d::Identity();
+
+Eigen::MatrixXd Left_points;
+Eigen::MatrixXd right_points;
+
 // ================================================================
 
 void
@@ -527,10 +531,53 @@ findCorrespondences (const pcl::PointCloud<pcl::FPFHSignature33>::Ptr &fpfhs_src
 // }
 
 // ==================================================================
+cv::Size        m_patternSize = cv::Size(6, 9);
+bool locateChessboardCorners(const cv::Mat image, std::vector<cv::Point2f>& imagePoints)
+{
+    double winSize = 0;
+    int flags = (cv::CALIB_CB_NORMALIZE_IMAGE		// normalize image gamma
+                 | cv::CALIB_CB_FILTER_QUADS		// use additional criteria to filter out false quads at the contour retrieval stage
+                 | cv::CALIB_CB_FAST_CHECK);		// run fast check on the image which looks for chessboard corners
+
+    // Locate the chessboard corners
+    bool found = cv::findChessboardCorners(image, m_patternSize, imagePoints);
+
+    if (found) {
+        // Refine the location of the corners
+        cv::cornerSubPix(image, imagePoints, cv::Size(6,9), cv::Size(-1, -1), cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 30, 0.1));
+        cv::drawChessboardCorners(image,m_patternSize,imagePoints,found);
+
+        if(imagePoints.front().y > imagePoints.back().y){
+        std::cout << "Reverse order\n";
+        std::reverse(imagePoints.begin(),imagePoints.end());
+        }
+
+      //   for(size_t r=0;r<m_patternSize.height;r++){
+      //   for(size_t c=0;c<m_patternSize.width;c++){
+      //       std::ostringstream oss;
+      //       cv::Point2f pt= imagePoints[r*m_patternSize.width+c];
+      //       oss << "("<<pt.x<<","<<pt.y<<")";
+      //       cv::Point2f test_pt;
+      //       test_pt.x=pt.x;
+      //       test_pt.y=pt.y;
+      //       cv::putText(image, oss.str(), imagePoints[r*m_patternSize.width+c], cv::FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 1);
+      //       cv::putText(image, oss.str(), test_pt, cv::FONT_HERSHEY_PLAIN, 1.5, (255, 0, 0), 1);
+      //       cv::imshow("image_chessboard", image);
+      //       cv::waitKey(0);
+      //   }
+      // }
+    }
+
+    return found;
+}
 
 
-
-void callback(const PointCloud::ConstPtr& msg_left, const PointCloud::ConstPtr& msg_right)
+void callback(const PointCloud::ConstPtr& msg_left, 
+              const PointCloud::ConstPtr& msg_right,
+              const sensor_msgs::ImageConstPtr& blaze_left_pointcloud_raw,
+              const sensor_msgs::ImageConstPtr& blaze_right_pointcloud_raw,
+              const sensor_msgs::ImageConstPtr& blaze_left_IR,
+              const sensor_msgs::ImageConstPtr& blaze_right_IR)
 {   
 
     /*
@@ -538,12 +585,88 @@ void callback(const PointCloud::ConstPtr& msg_left, const PointCloud::ConstPtr& 
         msg_right is my target
     */
 
+    cv::Mat blaze_PCL_left= cv_bridge::toCvShare(blaze_left_pointcloud_raw, "rgb8")->image;
+    cv::Mat blaze_PCL_right= cv_bridge::toCvShare(blaze_right_pointcloud_raw, "rgb8")->image;
+    cv::Mat blazeImg_left= cv_bridge::toCvShare(blaze_left_IR, "mono8")->image;
+    cv::Mat blazeImg_right= cv_bridge::toCvShare(blaze_right_IR, "mono8")->image;
+        
+     
+
+    cv::imshow("Blaze_left_pcl", blaze_PCL_left);
+    cv::imshow("Blaze_right_pcl", blaze_PCL_right);
+    cv::imshow("Blaze_left_IR", blazeImg_left);
+    cv::imshow("Blaze_right_IR", blazeImg_right);
+    char key = static_cast<char>(cv::waitKey(1));
+
+    if('s' == key)
+    {
+      std::vector<cv::Point2f> LeftCam_corner_pts;
+      const bool blazeFound_left = locateChessboardCorners(blazeImg_left, LeftCam_corner_pts);
+      std::vector<cv::Point2f> RightCam_corner_pts;
+      const bool blazeFound_right = locateChessboardCorners(blazeImg_right, RightCam_corner_pts);
+
+      Eigen::Matrix<float, 3, 54> sub_left_points;
+      Eigen::Matrix<float, 3, 54> sub_right_points;
+      std::cout<<"LeftCam_corner_pts: "<<LeftCam_corner_pts<<'\n';
+
+      std::cout<<"RightCam_corner_pts: "<<RightCam_corner_pts<<'\n';
+
+      if(blazeFound_left && blazeFound_right)
+      { int c=0;
+        for(int i=0;i<LeftCam_corner_pts.size();i++)
+        { 
+          std::ostringstream oss;
+          oss << "("<<int(LeftCam_corner_pts[i].x)<<","<<int(LeftCam_corner_pts[i].y)<<")";
+
+          const cv::Vec3f point3d = blazeImg_left.at<cv::Vec3f>(int(LeftCam_corner_pts[i].x), int(LeftCam_corner_pts[i].y))/ 1000.0f;
+          cv::putText(blazeImg_left, oss.str(), LeftCam_corner_pts[i], cv::FONT_HERSHEY_PLAIN, 1.5, (255, 0, 0), 1);
+          cv::imshow("left", blazeImg_left);
+          cv::waitKey(0);
+          sub_left_points(0,c)= point3d[0];
+          sub_left_points(1,c)= point3d[1];
+          sub_left_points(2,c)= point3d[2];
+          c++;
+
+        }
+        std::cout<< "Sub_left \n"<<sub_left_points <<'\n';
+        
+        c=0;
+        for (int i=RightCam_corner_pts.size()-1;i>=0;i--)
+        { 
+          std::ostringstream oss_new;
+          oss_new << "("<<int(RightCam_corner_pts[i].x)<<","<<int(RightCam_corner_pts[i].y)<<")";
+
+          const cv::Vec3f point3d = blazeImg_right.at<cv::Vec3f>(int(RightCam_corner_pts[i].x), int(RightCam_corner_pts[i].y))/ 1000.0f;
+          cv::putText(blazeImg_right, oss_new.str(), RightCam_corner_pts[i], cv::FONT_HERSHEY_PLAIN, 1.5, (255, 0, 0), 1);
+          cv::imshow("right", blazeImg_right);
+          cv::waitKey(0);
+
+          // const cv::Vec3f point3d = blazeImg_right.at<cv::Vec3f>(RightCam_corner_pts[i].x, RightCam_corner_pts[i].y)/ 1000.0f;
+          sub_right_points(0,c)= point3d[0];
+          sub_right_points(1,c)= point3d[1];
+          sub_right_points(2,c)= point3d[2];
+          c++;
+        }
+        
+        std::cout<< "Sub_right \n"<<sub_right_points <<'\n';
+        cv::destroyWindow("right");
+        cv::destroyWindow("left");
+      }
+
+      transformation = Eigen::umeyama(sub_left_points, sub_right_points, false);
+
+    }
+
+
+
+
+
 
     printf ("Cloud_left: width = %d, height = %d\n", msg_left->width, msg_left->height);
     printf ("Cloud_right: width = %d, height = %d\n", msg_right->width, msg_right->height);
                                                         // pointcloud = pcl::PointCloud<pcl::PointXYZRGB>::Ptr(new pcl::PointCloud<pcl::PointXYZRGB>(width, height));
-                                                        pointcloud = PointCloud::Ptr(new PointCloud(msg_left->width, msg_left->height));
-                                                        pointcloud->header.frame_id = "map";
+    pointcloud = PointCloud::Ptr(new PointCloud(msg_left->width, msg_left->height));
+    pointcloud->header.frame_id = "map";
                                                         //                 //   msg_left->header.frame_id = "new_map";
                                                         //                 //   BOOST_FOREACH (const pcl::PointXYZRGB& pt_left, msg_left->points)
                                                         //                 //   {
@@ -572,77 +695,9 @@ void callback(const PointCloud::ConstPtr& msg_left, const PointCloud::ConstPtr& 
                                                         //                     // pcl::transformPointCloud (*msg_right, *test_pcl, transformation);
                                                         //                     // *pcl_tr= *test_pcl;
 
-                                                        // pcl::IterativeClosestPoint<pcl::PointXYZRGB, pcl::PointXYZRGB> icp;
-                                                        // if (done == 0)
-                                                        // {
-                                                            
-                                                        //     icp.setInputSource(msg_left);
-                                                        //     icp.setInputTarget(msg_right);
-                                                        //     icp.setMaxCorrespondenceDistance (0.1);
-                                                        //     icp.setMaximumIterations (100);
-                                                        //     icp.setTransformationEpsilon (1e-10);
-                                                        //     icp.setEuclideanFitnessEpsilon (0.01);
-                                                            
-                                                        //     // pointcloud= *msg_right;
-                                                        //     PointCloud Final;
-                                                        //     icp.align(Final);
-                                                        //     transformation = icp.getFinalTransformation ();
-                                                        //     std::cout << "has converged:" << icp.hasConverged() << " score: " <<icp.getFitnessScore() << std::endl;
-                                                        //     // transformation(1,3) = 0.08;
-                                                        // }
-                                                        // done =1;
+                                                        
 
         
-
-    if (done<1)
-    { 
-        PointCloud_norm::Ptr normals_src (new PointCloud_norm), 
-                          normals_tgt (new PointCloud_norm);
-        estimateNormals (msg_left, msg_right, *normals_src, *normals_tgt);
-
-        // PointCloud::Ptr keypoints_src (new PointCloud), keypoints_tgt (new PointCloud);
-        
-        // estimateKeypoints (msg_left, msg_right, *keypoints_src, *keypoints_tgt);
-
-        pcl::PointCloud<pcl::PointWithScale>::Ptr keypoints_tgt(new pcl::PointCloud<pcl::PointWithScale>),
-                                                  keypoints_src(new pcl::PointCloud<pcl::PointWithScale>);
-
-        estimate_SIFT_Keypoints(msg_left, msg_right, keypoints_src, keypoints_tgt);
-
-        pcl::PointCloud<pcl::FPFHSignature33>::Ptr fpfhs_src (new pcl::PointCloud<pcl::FPFHSignature33>), 
-                                   fpfhs_tgt (new pcl::PointCloud<pcl::FPFHSignature33>);
-        // estimateFPFH (msg_left, msg_right, normals_src, normals_tgt, keypoints_src, keypoints_tgt, *fpfhs_src, *fpfhs_tgt);
-        
-        estimate_SIFT_FPFH(msg_left,msg_right,normals_src, normals_tgt, keypoints_src, keypoints_tgt, *fpfhs_src, *fpfhs_tgt);
-
-        pcl::CorrespondencesPtr all_correspondences (new pcl::Correspondences), 
-                     good_correspondences (new pcl::Correspondences);
-
-        // rejectBadCorrespondences (all_correspondences, keypoints_src, keypoints_tgt, *good_correspondences);
-        findCorrespondences (fpfhs_src, fpfhs_tgt, *good_correspondences);
-        // rejectBadCorrespondences (all_correspondences, keypoints_src, keypoints_tgt, *good_correspondences);
-
-        // for (const auto& corr : (*good_correspondences))
-        // std::cerr << corr << std::endl;
-
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr keypoints_xyzrgb_src(new pcl::PointCloud<pcl::PointXYZRGB>);
-        pcl::copyPointCloud(*keypoints_src , *keypoints_xyzrgb_src);
-
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr keypoints_xyzrgb_tgt(new pcl::PointCloud<pcl::PointXYZRGB>);
-        pcl::copyPointCloud(*keypoints_tgt , *keypoints_xyzrgb_tgt);
-
-        
-        pcl::registration::TransformationEstimationSVD<pcl::PointXYZRGB, pcl::PointXYZRGB> trans_est;
-
-
-        trans_est.estimateRigidTransformation (*keypoints_xyzrgb_src, *keypoints_xyzrgb_tgt, *good_correspondences, transformation);
-
-        // transformation = rel_tf;
-    }
-    done+=1;
-
-
-
     std::cout<<"TF obtained: \n"<<transformation<<'\n';
                                                 // DEFINING MY OWN Tranformation Matrix:
                                                 // transformation(0,3)=2.5;
@@ -666,6 +721,11 @@ int main(int argc, char* argv[])
 {
     ros::init(argc, argv, "Rel_TF_node");
     ros::NodeHandle nh("~");
+    cv::namedWindow("Blaze_left_pcl");
+    cv::namedWindow("Blaze_right_pcl");
+    cv::namedWindow("Blaze_left_IR");
+    cv::namedWindow("Blaze_right_IR");
+
     // ros::Subscriber sub = nh.subscribe<PointCloud>("/cloud_pcl_left", 1, callback);
     pcl_output = nh.advertise<pcl::PointCloud<pcl::PointXYZRGB> >("/processed_pcl", 10);
     
@@ -673,11 +733,21 @@ int main(int argc, char* argv[])
     message_filters::Subscriber<PointCloud> sub_left_pcl(nh,"/cloud_pcl_left",10);
     message_filters::Subscriber<PointCloud> sub_right_pcl(nh,"/cloud_pcl_right",10);
 
-    TimeSynchronizer<PointCloud, PointCloud> sync(sub_left_pcl, sub_right_pcl,10);
-    sync.registerCallback(boost::bind(&callback, _1, _2));
+    message_filters::Subscriber<sensor_msgs::Image> sub_blaze_left_pointcloud(nh,"/Blaze_node_left/Blaze/pointcloud",10);
+    message_filters::Subscriber<sensor_msgs::Image> sub_blaze_right_pointcloud(nh,"/Blaze_node_right/Blaze/pointcloud",10);
+
+    message_filters::Subscriber<sensor_msgs::Image> sub_blaze_right_IR(nh,"/Blaze_node_right/Blaze/intensity_image",10);
+    message_filters::Subscriber<sensor_msgs::Image> sub_blaze_left_IR(nh,"/Blaze_node_left/Blaze/intensity_image",10);
+
+    TimeSynchronizer<PointCloud, PointCloud, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::Image> sync(sub_left_pcl, sub_right_pcl, sub_blaze_left_pointcloud, sub_blaze_right_pointcloud, sub_blaze_left_IR, sub_blaze_right_IR,10);
+    sync.registerCallback(boost::bind(&callback, _1, _2, _3, _4, _5, _6));
 
 
     ros::spin();
+    cv::destroyWindow("Blaze_left_pcl");
+    cv::destroyWindow("Blaze_right_pcl");
+    cv::destroyWindow("Blaze_left_IR");
+    cv::destroyWindow("Blaze_right_IR");
 
 // Eigen::umeyama()
 
