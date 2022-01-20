@@ -279,6 +279,7 @@ PointCloud::Ptr test_pcl(new PointCloud);
 PointCloud::Ptr pcl_tr(new PointCloud);
 
 ros::Publisher  pcl_output;
+ros::Publisher  pcl_output_gray;
 int done =0;
 Eigen::Matrix4f transformation = Eigen::Matrix4f::Identity();
 Eigen::Matrix4d rel_tf = Eigen::Matrix4d::Identity();
@@ -571,6 +572,68 @@ bool locateChessboardCorners(const cv::Mat image, std::vector<cv::Point2f>& imag
     return found;
 }
 
+cv::Mat warpColorToDepth(const cv::Mat pointcloud, const cv::Mat& color)
+{
+    const int width = pointcloud.cols;
+    const int height = pointcloud.rows;
+    cv::Mat copy_pcl(pointcloud.size(), CV_32FC3);
+    // pointcloud.convertTo(pointcloud, CV_32FC3, 1/255.0);
+    // pointcloud.copyTo(copy_pcl);
+
+    // const cv::Vec3f point3d = pointcloud.at<cv::Vec3f>(0, 0)
+
+    for(int i=0;i<height;i++)
+    {
+        for(int j=0;j<width;j++)
+        {
+            const cv::Vec3f point3d = pointcloud.at<cv::Vec3f>(i, j);
+            copy_pcl.at<cv::Vec3f>(i,j)=point3d;
+
+        }
+
+    }
+
+    cv::Mat coloredDepth(pointcloud.size(), CV_8UC3);
+    
+    std::cout<< "Size: "<<pointcloud.size()<<'\n';
+    // std::cout << typeid(pointcloud).name() << endl;
+    
+    // cv::namedWindow("Blaze_depth");
+    // cv::imshow("Blaze_depth", pointcloud);
+    // // cv::destroyWindow("Blaze_depth");
+    // cv::waitKey(1);
+
+
+                    cv::Mat pointcloudVec = copy_pcl.reshape(3, 1);
+                    // std::cout<< "Size pointcloudVec: "<<pointcloudVec.size()<<'\n';
+                    // cv::Mat projectedPoints;
+                    // cv::projectPoints(pointcloudVec, m_rotation, m_rotation* m_translation, m_colorCameraMatrix, m_colorDistortion, projectedPoints);
+
+                    const cv::Vec3b invalidPoint(0, 0, 0);
+                    cv::Rect colorRect(cv::Point(), color.size());
+                    for (int row = 0; row < height; ++row) {
+                        for (int col = 0; col < width; ++col) {
+                            const int idx = row * width + col;
+                            const cv::Vec3f& point3d = pointcloudVec.at<cv::Vec3f>(idx);
+                            if (point3d[2] != 0.0f) {
+                                const cv::Point2f& colorPoint = pointcloudVec.at<cv::Point2f>(idx);
+                                if (colorRect.contains(colorPoint)) {
+                                    coloredDepth.at<cv::Vec3b>(row, col) = color.at<cv::Vec3b>(colorPoint);
+                                } else {
+                                    // No color information avalable
+                                    coloredDepth.at<cv::Vec3b>(row, col) = invalidPoint;
+                                }
+                            } else {
+                                // No depth information available for this pixel. Zero it.
+                                coloredDepth.at<cv::Vec3b>(row, col) = invalidPoint;
+                            }
+                        }
+                    }
+
+    return coloredDepth;
+}
+
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr point_gray_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
 
 void callback(const PointCloud::ConstPtr& msg_left, 
               const PointCloud::ConstPtr& msg_right,
@@ -597,9 +660,16 @@ void callback(const PointCloud::ConstPtr& msg_left,
     cv::imshow("Blaze_left_IR", blazeImg_left);
     cv::imshow("Blaze_right_IR", blazeImg_right);
     char key = static_cast<char>(cv::waitKey(1));
+    
 
     if('s' == key)
     {
+      std::cout<<"pcl_left_size: "<<blaze_PCL_left.size()<<'\n';
+      std::cout<<"IR Image_size: "<<blazeImg_left.size()<<'\n';
+
+      // point_gray_cloud = pcl::PointCloud<pcl::PointXYZRGB>::Ptr(new pcl::PointCloud<pcl::PointXYZRGB>(msg_left->width, msg_left->height));
+      // point_gray_cloud->header.frame_id = "map";
+
       std::vector<cv::Point2f> LeftCam_corner_pts;
       const bool blazeFound_left = locateChessboardCorners(blazeImg_left, LeftCam_corner_pts);
       std::vector<cv::Point2f> RightCam_corner_pts;
@@ -618,7 +688,7 @@ void callback(const PointCloud::ConstPtr& msg_left,
           std::ostringstream oss;
           oss << "("<<int(LeftCam_corner_pts[i].x)<<","<<int(LeftCam_corner_pts[i].y)<<")";
 
-          const cv::Vec3f point3d = blazeImg_left.at<cv::Vec3f>(int(LeftCam_corner_pts[i].x), int(LeftCam_corner_pts[i].y))/ 1000.0f;
+          const cv::Vec3f point3d = blaze_PCL_left.at<cv::Vec3f>(int(LeftCam_corner_pts[i].y), int(LeftCam_corner_pts[i].x))/ 1000.0f;
           cv::putText(blazeImg_left, oss.str(), LeftCam_corner_pts[i], cv::FONT_HERSHEY_PLAIN, 1.5, (255, 0, 0), 1);
           cv::imshow("left", blazeImg_left);
           cv::waitKey(0);
@@ -629,14 +699,41 @@ void callback(const PointCloud::ConstPtr& msg_left,
 
         }
         std::cout<< "Sub_left \n"<<sub_left_points <<'\n';
+        // =========================================TEST====================
         
+        // cv::Mat coloredDepth=warpColorToDepth(blaze_PCL_left,blazeImg_left);
+
+        // const int width = blaze_PCL_left.cols;
+        // const int height = blaze_PCL_left.rows;
+        // point_gray_cloud = pcl::PointCloud<pcl::PointXYZRGB>::Ptr(new pcl::PointCloud<pcl::PointXYZRGB>(width, height));
+        // point_gray_cloud->header.frame_id = "map"; // For RVIZ visualization only
+
+        // for (int row = 0; row < height; row += 1) {
+        //     for (int col = 0; col < width; col += 1) {
+        //         auto& coloredPoint = point_gray_cloud->at(col, row); // PCL uses column/row instead of row/column
+
+        //         const cv::Vec3f point3d = blaze_PCL_left.at<cv::Vec3f>(row, col)/ 1000.0f; // Scaling from mm to m for PCL
+        //         coloredPoint.x = point3d[0];
+        //         coloredPoint.y = point3d[1];
+        //         coloredPoint.z = point3d[2];
+        //         // std::cout<<"X: "<<coloredPoint.x<<" Y: "<<coloredPoint.y<<" Z: "<<coloredPoint.z<<'\n'; 
+
+        //         const cv::Vec3b color = blazeImg_left.at<cv::Vec3b>(row, col);
+        //         coloredPoint.r = color[0];
+        //         coloredPoint.g = color[0];
+        //         coloredPoint.b = color[0];
+        //     }
+        // }
+
+        // pcl_output_gray.publish (point_gray_cloud);
+        // =========================================TEST====================
         c=0;
         for (int i=RightCam_corner_pts.size()-1;i>=0;i--)
         { 
           std::ostringstream oss_new;
           oss_new << "("<<int(RightCam_corner_pts[i].x)<<","<<int(RightCam_corner_pts[i].y)<<")";
 
-          const cv::Vec3f point3d = blazeImg_right.at<cv::Vec3f>(int(RightCam_corner_pts[i].x), int(RightCam_corner_pts[i].y))/ 1000.0f;
+          const cv::Vec3f point3d = blaze_PCL_right.at<cv::Vec3f>(int(RightCam_corner_pts[i].y), int(RightCam_corner_pts[i].x))/ 1000.0f;
           cv::putText(blazeImg_right, oss_new.str(), RightCam_corner_pts[i], cv::FONT_HERSHEY_PLAIN, 1.5, (255, 0, 0), 1);
           cv::imshow("right", blazeImg_right);
           cv::waitKey(0);
@@ -653,7 +750,7 @@ void callback(const PointCloud::ConstPtr& msg_left,
         cv::destroyWindow("left");
       }
 
-      transformation = Eigen::umeyama(sub_left_points, sub_right_points, false);
+      transformation = Eigen::umeyama(sub_left_points, sub_right_points, true);
 
     }
 
@@ -728,7 +825,7 @@ int main(int argc, char* argv[])
 
     // ros::Subscriber sub = nh.subscribe<PointCloud>("/cloud_pcl_left", 1, callback);
     pcl_output = nh.advertise<pcl::PointCloud<pcl::PointXYZRGB> >("/processed_pcl", 10);
-    
+    pcl_output_gray = nh.advertise<pcl::PointCloud<pcl::PointXYZRGB> >("/left_gray_pcl", 10);
 
     message_filters::Subscriber<PointCloud> sub_left_pcl(nh,"/cloud_pcl_left",10);
     message_filters::Subscriber<PointCloud> sub_right_pcl(nh,"/cloud_pcl_right",10);
