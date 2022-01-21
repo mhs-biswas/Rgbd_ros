@@ -50,7 +50,7 @@ void setupBlazeCamera(CBlazeCamera& m_blazeCamera, std::string dev_serial_num)
     m_blazeCamera.SetCameraParameterValue("Scan3dCoordinateSelector", "CoordinateC");
     m_blazeCamera.SetCameraParameterValue("Scan3dInvalidDataValue", 0.0);
     m_blazeCamera.SetCameraParameterValue("OperatingMode","LongRange");
-    m_blazeCamera.SetCameraParameterValue("FastMode",true);
+    m_blazeCamera.SetCameraParameterValue("FastMode",false);
 
     // m_blazeCamera.SetCameraParameterValue("AmbiguityFilter",true);
 

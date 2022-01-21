@@ -699,34 +699,6 @@ void callback(const PointCloud::ConstPtr& msg_left,
 
         }
         std::cout<< "Sub_left \n"<<sub_left_points <<'\n';
-        // =========================================TEST====================
-        
-        // cv::Mat coloredDepth=warpColorToDepth(blaze_PCL_left,blazeImg_left);
-
-        // const int width = blaze_PCL_left.cols;
-        // const int height = blaze_PCL_left.rows;
-        // point_gray_cloud = pcl::PointCloud<pcl::PointXYZRGB>::Ptr(new pcl::PointCloud<pcl::PointXYZRGB>(width, height));
-        // point_gray_cloud->header.frame_id = "map"; // For RVIZ visualization only
-
-        // for (int row = 0; row < height; row += 1) {
-        //     for (int col = 0; col < width; col += 1) {
-        //         auto& coloredPoint = point_gray_cloud->at(col, row); // PCL uses column/row instead of row/column
-
-        //         const cv::Vec3f point3d = blaze_PCL_left.at<cv::Vec3f>(row, col)/ 1000.0f; // Scaling from mm to m for PCL
-        //         coloredPoint.x = point3d[0];
-        //         coloredPoint.y = point3d[1];
-        //         coloredPoint.z = point3d[2];
-        //         // std::cout<<"X: "<<coloredPoint.x<<" Y: "<<coloredPoint.y<<" Z: "<<coloredPoint.z<<'\n'; 
-
-        //         const cv::Vec3b color = blazeImg_left.at<cv::Vec3b>(row, col);
-        //         coloredPoint.r = color[0];
-        //         coloredPoint.g = color[0];
-        //         coloredPoint.b = color[0];
-        //     }
-        // }
-
-        // pcl_output_gray.publish (point_gray_cloud);
-        // =========================================TEST====================
         c=0;
         for (int i=RightCam_corner_pts.size()-1;i>=0;i--)
         { 
@@ -750,7 +722,7 @@ void callback(const PointCloud::ConstPtr& msg_left,
         cv::destroyWindow("left");
       }
 
-      transformation = Eigen::umeyama(sub_left_points, sub_right_points, true);
+      transformation = Eigen::umeyama(sub_left_points, sub_right_points, false);
 
     }
 
